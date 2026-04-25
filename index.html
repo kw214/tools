@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圓桌計分器 - 精美專業版</title>
+    <style>
+        /* --- 現代化視覺設計 --- */
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --danger: #ef4444;
+            --success: #10b981;
+            --bg-gradient: linear-gradient(90deg, #efe6da 0.000%, #e5d7ca 16.667%, #dac7b9 33.333%, #cfb6a9 50.000%, #c4a699 66.667%, #b9968b 83.333%, #af887e 100.000%);
+            --glass: rgba(255, 255, 255, 0.95);
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            margin: 0;
+            color: #1e293b;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 900px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        h2 { text-align: center; font-size: 28px; margin-bottom: 30px; letter-spacing: 2px; color: #334155; }
+        .hidden { display: none !important; }
+
+        /* --- 圓圈輸入區 --- */
+        .circle-container {
+            position: relative;
+            width: 340px;
+            height: 340px;
+            border: 2px solid #e2e8f0;
+            border-radius: 50%;
+            margin: 40px auto;
+            background: rgba(248, 250, 252, 0.5);
+        }
+
+        .player-node {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            width: 85px;
+            padding: 10px;
+            text-align: center;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            font-size: 14px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+
+        .player-node:focus { transform: translate(-50%, -50%) scale(1.1); border-color: var(--primary-hover); outline: none; }
+
+        /* --- 遊戲佈局 --- */
+        .game-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 30px; margin-top: 20px; }
+        @media (max-width: 768px) { .game-layout { grid-template-columns: 1fr; } }
+
+        .panel { background: #fff; padding: 25px; border-radius: 20px; border: 1px solid #f1f5f9; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .panel h3 { margin-top: 0; font-size: 18px; color: #64748b; border-left: 4px solid var(--primary); padding-left: 10px; }
+
+        /* --- 表格樣式 --- */
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 15px; border-radius: 12px; overflow: hidden; }
+        th { background: #f8fafc; padding: 15px 10px; font-weight: 600; color: #475569; font-size: 14px; }
+        td { padding: 15px 10px; text-align: center; border-bottom: 1px solid #f1f5f9; font-size: 15px; }
+        tr:last-child td { border-bottom: none; }
+
+        /* --- 按鈕與輸入 --- */
+        button {
+            cursor: pointer;
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);
+        }
+
+        button:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(99, 102, 241, 0.3); }
+        button:active { transform: translateY(0); }
+
+        .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #64748b; box-shadow: none; }
+        .btn-outline:hover { background: #f8fafc; color: #1e293b; border-color: #cbd5e1; }
+
+        .input-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #f8fafc; border-radius: 10px; }
+        input[type="number"] { width: 65px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; text-align: center; font-size: 16px; }
+
+        .pos { color: var(--success); font-weight: bold; }
+        .neg { color: var(--danger); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🎲 圓桌計分器</h2>
+
+    <div id="s1" style="text-align:center; padding: 40px 0;">
+        <p style="font-size: 18px; color: #64748b;">歡迎使用！請設定玩家人數</p>
+        <div style="margin: 30px 0;">
+            <input type="number" id="num" value="4" min="2" max="10">
+            <span style="margin: 0 15px; color: #94a3b8;">位玩家</span>
+        </div>
+        <button id="go1" style="padding: 15px 40px;">開始設定</button>
+    </div>
+
+    <div id="s2" class="hidden">
+        <p style="text-align:center; color: #64748b;">請依桌次位置填入玩家名稱</p>
+        <div id="area" class="circle-container"></div>
+        <div style="text-align:center;">
+            <button id="go2" style="padding: 15px 50px; background: var(--success); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);">進入賽局</button>
+        </div>
+    </div>
+
+    <div id="s3" class="hidden">
+        <div class="game-layout">
+            <div class="panel">
+                <h3>✍️ 本回合得分</h3>
+                <div id="in-list" style="margin-top: 20px;"></div>
+                <button id="sub" style="width:100%; margin-top:10px; font-size: 16px;">確認結算</button>
+            </div>
+            
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>📊 即時積分榜</h3>
+                    <button id="undo" class="hidden btn-outline" style="padding: 5px 12px; font-size: 13px;">↩ 撤銷</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr><th>玩家</th><th>上輪</th><th>總積分</th><th>淨值</th></tr>
+                    </thead>
+                    <tbody id="tab"></tbody>
+                </table>
+                <p style="font-size: 11px; color: #94a3b8; margin-top: 20px; text-align: center;">
+                    淨值算法：(個人總分 × -(人數-1)) + 其他玩家總分
+                </p>
+            </div>
+        </div>
+        
+        <div style="text-align:center; margin-top:40px;">
+            <button id="reset" class="btn-outline">重新開始新局</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let players = [];
+        let history = [];
+
+        // 步驟 1 -> 2
+        document.getElementById('go1').onclick = function() {
+            const n = parseInt(document.getElementById('num').value);
+            if (n < 2) return alert("請輸入至少 2 人");
+            const area = document.getElementById('area');
+            area.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                const angle = (i * 2 * Math.PI / n) - (Math.PI / 2);
+                const x = 170 + 135 * Math.cos(angle);
+                const y = 170 + 135 * Math.sin(angle);
+                area.innerHTML += `<input type="text" class="player-node name-in" style="left:${x}px; top:${y}px;" placeholder="玩家${i+1}">`;
+            }
+            document.getElementById('s1').classList.add('hidden');
+            document.getElementById('s2').classList.remove('hidden');
+        };
+
+        // 步驟 2 -> 3
+        document.getElementById('go2').onclick = function() {
+            const names = document.querySelectorAll('.name-in');
+            players = Array.from(names).map(inp => ({ 
+                name: inp.value.trim() || "匿名", 
+                last: 0, 
+                total: 0 
+            }));
+            
+            const list = document.getElementById('in-list');
+            list.innerHTML = players.map((p, i) => `
+                <div class="input-group">
+                    <span style="font-weight:600;">${p.name}</span>
+                    <input type="number" class="sc-in" data-idx="${i}" value="0" onclick="this.select()">
+                </div>
+            `).join('');
+
+            render();
+            document.getElementById('s2').classList.add('hidden');
+            document.getElementById('s3').classList.remove('hidden');
+        };
+
+        // 結算
+        document.getElementById('sub').onclick = function() {
+            const inputs = document.querySelectorAll('.sc-in');
+            let round = [];
+            inputs.forEach(inp => {
+                const idx = inp.dataset.idx;
+                const v = parseInt(inp.value) || 0;
+                players[idx].last = v;
+                players[idx].total += v;
+                round.push(v);
+                inp.value = 0;
+            });
+            history.push(round);
+            render();
+        };
+
+        // 撤銷
+        document.getElementById('undo').onclick = function() {
+            if (history.length > 0 && confirm("確定要撤銷上一輪得分嗎？")) {
+                const last = history.pop();
+                players.forEach((p, i) => {
+                    p.total -= last[i];
+                    const prev = history[history.length - 1];
+                    p.last = prev ? prev[i] : 0;
+                });
+                render();
+            }
+        };
+
+        // 重啟
+        document.getElementById('reset').onclick = function() {
+            if (confirm("確定要清空資料並重新開始嗎？")) location.reload();
+        };
+
+        function render() {
+            const body = document.getElementById('tab');
+            const n = players.length;
+            const total = players.reduce((s, p) => s + p.total, 0);
+
+            body.innerHTML = players.map(p => {
+                const others = total - p.total;
+                const net = (p.total * -(n - 1)) + others;
+                const cls = net >= 0 ? 'pos' : 'neg';
+                return `<tr>
+                    <td><strong>${p.name}</strong></td>
+                    <td style="color:#64748b">${p.last}</td>
+                    <td style="font-weight:600">${p.total}</td>
+                    <td class="${cls}">${net > 0 ? '+' : ''}${net}</td>
+                </tr>`;
+            }).join('');
+            document.getElementById('undo').classList.toggle('hidden', history.length === 0);
+        }
+    });
+</script>
+
+</body>
+</html>
