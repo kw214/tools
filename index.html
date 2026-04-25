@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title> KW 計分器 </title>
+    <style>
+        :root { --primary: #6366f1; --success: #10b981; --danger: #ef4444; --bg: linear-gradient(45deg, #8ec5fc 0.000%, #8dd3ff 25.000%, #a1d8ff 50.000%, #c1d2ff 75.000%, #e0c3ff 100.000%); }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); min-height: 100vh; margin: 0; padding: 20px; display: flex; justify-content: center; color: #1e293b; }
+        .card { background: rgba(255, 255, 255, 0.98); padding: 25px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); width: 100%; max-width: 900px; }
+        .hidden { display: none !important; }
+        
+        /* 圓形佈局 */
+        .circle-container { position: relative; width: 280px; height: 280px; border: 2px dashed #cbd5e1; border-radius: 50%; margin: 30px auto; }
+        .p-node { position: absolute; transform: translate(-50%, -50%); width: 75px; padding: 8px; text-align: center; border: 2px solid var(--primary); border-radius: 12px; background: white; font-size: 14px; }
+
+        /* 面板設計 */
+        .grid { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+        .panel { flex: 1; min-width: 300px; background: #fff; padding: 15px; border-radius: 15px; border: 1px solid #f1f5f9; }
+        .row { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 10px; border-radius: 10px; margin-bottom: 8px; }
+        .row.is-out { opacity: 0.3; background: #e2e8f0; }
+        
+        input { font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; }
+        .sc-in { width: 60px; text-align: center; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px 5px; text-align: center; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        
+        button { cursor: pointer; padding: 12px 20px; border-radius: 12px; border: none; background: var(--primary); color: white; font-weight: bold; -webkit-appearance: none; }
+        .btn-status { font-size: 11px; padding: 5px 8px; background: #94a3b8; }
+        .btn-status.active { background: var(--success); }
+        .pos { color: var(--success); font-weight: bold; }
+        .neg { color: var(--danger); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2 style="text-align:center;">🎲 KW 計分器 </h2>
+
+    <div id="step1" style="text-align:center;">
+        <p>設定總玩家人數</p>
+        <input type="number" id="input_num" value="5" style="width:80px; text-align:center; margin-bottom:20px;">
+        <br>
+        <button id="btn_go2">設定名字</button>
+    </div>
+
+    <div id="step2" class="hidden">
+        <div id="circle_area" class="circle-container"></div>
+        <div style="text-align:center;">
+            <button id="btn_go3" style="background:var(--success);">開始遊戲</button>
+        </div>
+    </div>
+
+    <div id="step3" class="hidden">
+        <div class="grid">
+            <div class="panel">
+                <div id="input_list"></div>
+                <button id="btn_submit" style="width:100%; margin-top:10px;">結算本局</button>
+            </div>
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between;">
+                    <b>累計排行榜</b>
+                    <button id="btn_undo" class="hidden" style="background:#888; font-size:10px; padding:4px 8px;">撤銷</button>
+                </div>
+                <table>
+                    <thead><tr><th>玩家</th><th>上輪得分</th><th>總積分</th><th>最終結算</th></tr></thead>
+                    <tbody id="table_body"></tbody>
+                </table>
+            </div>
+        </div>
+        <button onclick="if(confirm('確定重開？')) location.reload()" style="background:none; color:#94a3b8; width:100%; margin-top:20px; font-size:12px;">重新開始新局</button>
+    </div>
+</div>
+
+<script>
+    var players = [];
+    var historyStack = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // 第一步：生成名字輸入框
+        document.getElementById('btn_go2').addEventListener('click', function() {
+            var n = parseInt(document.getElementById('input_num').value) || 5;
+            var area = document.getElementById('circle_area');
+            area.innerHTML = '';
+            for (var i = 0; i < n; i++) {
+                var angle = (i * 2 * Math.PI / n) - (Math.PI / 2);
+                var x = 140 + 110 * Math.cos(angle);
+                var y = 140 + 110 * Math.sin(angle);
+                var inp = document.createElement('input');
+                inp.type = 'text';
+                inp.className = 'p-node name-input';
+                inp.value = '玩家' + (i + 1);
+                inp.style.left = x + 'px';
+                inp.style.top = y + 'px';
+                area.appendChild(inp);
+            }
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.remove('hidden');
+        });
+
+        // 第二步：初始化玩家資料
+        document.getElementById('btn_go3').addEventListener('click', function() {
+            var nameInputs = document.querySelectorAll('.name-input');
+            players = [];
+            for (var i = 0; i < nameInputs.length; i++) {
+                players.push({
+                    name: nameInputs[i].value,
+                    totalScore: 0, // 累計原始分數
+                    totalNet: 0,   // 累計淨值 (這才是最終結算)
+                    lastScore: 0,
+                    isOut: false
+                });
+            }
+            renderInputs();
+            renderTable();
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.remove('hidden');
+        });
+
+        // 結算邏輯
+        document.getElementById('btn_submit').addEventListener('click', function() {
+            var roundResults = [];
+            var activeIndices = [];
+            var roundSum = 0;
+
+            // 1. 蒐集本局有上場的資料
+            for (var i = 0; i < players.length; i++) {
+                var val = 0;
+                var out = players[i].isOut;
+                if (!out) {
+                    val = parseInt(document.getElementById('sc-' + i).value) || 0;
+                    roundSum += val;
+                    activeIndices.push(i);
+                }
+                roundResults.push({ score: val, isOut: out, net: 0 });
+            }
+
+            // 2. 計算「本局」的淨值並加進玩家總量
+            var n = activeIndices.length;
+            if (n > 1) {
+                for (var j = 0; j < activeIndices.length; j++) {
+                    var idx = activeIndices[j];
+                    var score = roundResults[idx].score;
+                    // 單局公式：(該局分 * -(上場人數-1)) + (該局其餘人總分)
+                    var roundNet = (score * -(n - 1)) + (roundSum - score);
+                    
+                    // 更新玩家數據
+                    players[idx].totalScore += score;
+                    players[idx].totalNet += roundNet;
+                    players[idx].lastScore = score;
+                    roundResults[idx].net = roundNet;
+                }
+                
+                // 處理休息者
+                for (var k = 0; k < players.length; k++) {
+                    if (players[k].isOut) {
+                        players[k].lastScore = "-";
+                    }
+                    document.getElementById('sc-' + k).value = 0;
+                }
+
+                historyStack.push(roundResults);
+                renderTable();
+            } else {
+                alert("請至少讓兩位玩家上場！");
+            }
+        });
+
+        // 撤銷邏輯
+        document.getElementById('btn_undo').addEventListener('click', function() {
+            if (historyStack.length === 0) return;
+            var lastRound = historyStack.pop();
+            for (var i = 0; i < players.length; i++) {
+                if (!lastRound[i].isOut) {
+                    players[i].totalScore -= lastRound[i].score;
+                    players[i].totalNet -= lastRound[i].net;
+                }
+                var prev = historyStack[historyStack.length - 1];
+                players[i].lastScore = prev ? (prev[i].isOut ? "-" : prev[i].score) : 0;
+            }
+            renderTable();
+        });
+    });
+
+    function renderInputs() {
+        var list = document.getElementById('input_list');
+        list.innerHTML = '';
+        for (var i = 0; i < players.length; i++) {
+            var div = document.createElement('div');
+            div.className = 'row' + (players[i].isOut ? ' is-out' : '');
+            div.innerHTML = '<b>' + players[i].name + '</b>' +
+                '<div>' +
+                '<input type="number" class="sc-in" id="sc-' + i + '" value="0" ' + (players[i].isOut ? 'disabled' : '') + ' onclick="this.select()">' +
+                '<button class="btn-status ' + (players[i].isOut ? '' : 'active') + '" onclick="togglePlayer(' + i + ')">' + (players[i].isOut ? '休息' : '上場') + '</button>' +
+                '</div>';
+            list.appendChild(div);
+        }
+    }
+
+    window.togglePlayer = function(idx) {
+        players[idx].isOut = !players[idx].isOut;
+        renderInputs();
+    };
+
+    function renderTable() {
+        var body = document.getElementById('table_body');
+        var h = '';
+        for (var i = 0; i < players.length; i++) {
+            var p = players[i];
+            var cls = p.totalNet >= 0 ? "pos" : "neg";
+            var netDisp = (p.totalNet > 0 ? "+" : "") + p.totalNet;
+            
+            h += '<tr>' +
+                '<td><b>' + p.name + '</b></td>' +
+                '<td style="color:#666">' + p.lastScore + '</td>' +
+                '<td>' + p.totalScore + '</td>' +
+                '<td class="' + cls + '">' + netDisp + '</td>' +
+                '</tr>';
+        }
+        body.innerHTML = h;
+        document.getElementById('btn_undo').classList.toggle('hidden', historyStack.length === 0);
+    }
+</script>
+
+</body>
+</html>
