@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KW 遊戲工具箱</title>
+    <style>
+        :root { 
+            --primary: #6366f1; 
+            --success: #10b981; 
+            --danger: #ef4444; 
+            --inactive: #94a3b8;
+            --bg: linear-gradient(45deg, #8ec5fc 0.000%, #8dd3ff 25.000%, #a1d8ff 50.000%, #c1d2ff 75.000%, #e0c3ff 100.000%); 
+        }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); min-height: 100vh; margin: 0; display: flex; justify-content: center; }
+        .app-container { width: 100%; max-width: 800px; min-height: 100vh; background: rgba(255, 255, 255, 0.95); display: flex; flex-direction: column; box-shadow: 0 0 40px rgba(0,0,0,0.1); }
+        .nav-bar { display: flex; justify-content: space-around; padding: 15px 0; border-bottom: 1px solid #e2e8f0; background: #fff; }
+        .nav-item { text-align: center; cursor: pointer; flex: 1; color: var(--inactive); transition: 0.3s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 24px; margin-bottom: 4px; }
+        .nav-label { font-size: 12px; font-weight: bold; }
+        .content { padding: 20px; flex: 1; }
+        .module { display: none; }
+        .module.active { display: block; }
+        .hidden { display: none !important; }
+
+
+        /* 計分器樣式 */
+        .circle-container { position: relative; width: 280px; height: 280px; border: 2px dashed #cbd5e1; border-radius: 50%; margin: 30px auto; }
+        .p-node { position: absolute; transform: translate(-50%, -50%); width: 75px; padding: 8px; text-align: center; border: 2px solid var(--primary); border-radius: 12px; background: white; font-size: 14px; }
+        .grid { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+        .panel { flex: 1; min-width: 300px; background: #fff; padding: 15px; border-radius: 15px; border: 1px solid #f1f5f9; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .row { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 10px; border-radius: 10px; margin-bottom: 8px; }
+        .row.is-out { opacity: 0.3; background: #e2e8f0; }
+        input { font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; text-align: center; }
+        .sc-in { width: 60px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px 5px; text-align: center; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        button { cursor: pointer; padding: 12px 20px; border-radius: 12px; border: none; background: var(--primary); color: white; font-weight: bold; -webkit-appearance: none; }
+        .pos { color: var(--success); font-weight: bold; }
+        .neg { color: var(--danger); font-weight: bold; }
+
+        /* 計時器樣式 */
+        .setting-row { display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+        .setting-row label { width: 90px; text-align: right; margin-right: 12px; font-weight: bold; font-size: 15px; }
+        .timer-box { background: #1e293b; color: white; border-radius: 20px; padding: 40px 10px; margin: 20px 0; cursor: pointer; text-align: center; }
+        .main-time { font-size: 3.5rem; font-weight: bold; font-family: monospace; display: block; color: white;}
+        .circle-area { position: relative; width: 240px; height: 240px; border: 2px dashed #ddd; border-radius: 50%; margin: 20px auto; }
+        .p-input { position: absolute; width: 60px; padding: 5px; border: 2px solid var(--primary); border-radius: 8px; transform: translate(-50%, -50%); font-size: 12px; background: white; 	text-align: center; }
+
+
+	/* 骰子專用樣式 */
+	.dice-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px auto; width: 100%; }
+	.dice {
+    	flex: 0 0 calc(20% - 8px); aspect-ratio: 1 / 1; background: white; border: 1px solid #ddd;
+    	border-radius: 12px; box-shadow: inset 0 -3px 0 0 #d1d1d1, 0 2px 5px rgba(0,0,0,0.1);
+    	cursor: pointer; position: relative; box-sizing: border-box; transition: all 0.2s;
+    	display: grid; grid-template-areas: "a . b" "c d e" "f . g"; grid-template-columns: repeat(3, 1fr);
+    	grid-template-rows: repeat(3, 1fr); padding: 6px;
+	}
+	.pip { display: block; width: 85%; height: 85%; background-color: #333; border-radius: 50%; align-self: center; justify-self: center; box-shadow: inset 0 1px 1px rgba(0,0,0,0.2); }
+	.dice-1 .pip, .dice-4 .pip { background-color: #ef4444; } /* 1、4點為紅色 */
+	.dice-1 .pip { grid-area: d; width: 95%; height: 95%; } /* 1點加大 */
+	.dice-2 .pip:nth-child(1) { grid-area: b; } .dice-2 .pip:nth-child(2) { grid-area: f; }
+	.dice-3 .pip:nth-child(1) { grid-area: b; } .dice-3 .pip:nth-child(2) { grid-area: d; } .dice-3 .pip:nth-child(3) { grid-area: f; }
+	.dice-4 .pip:nth-child(1) { grid-area: a; } .dice-4 .pip:nth-child(2) { grid-area: b; } .dice-4 .pip:nth-child(3) { grid-area: f; } .dice-4 .pip:nth-child(4) { grid-area: g; }
+	.dice-5 .pip:nth-child(1) { grid-area: a; } .dice-5 .pip:nth-child(2) { grid-area: b; } .dice-5 .pip:nth-child(3) { grid-area: d; } .dice-5 .pip:nth-child(4) { grid-area: 	f; } .dice-5 .pip:nth-child(5) { grid-area: g; }
+	.dice-6 .pip:nth-child(1) { grid-area: a; } .dice-6 .pip:nth-child(2) { grid-area: b; } .dice-6 .pip:nth-child(3) { grid-area: c; } .dice-6 .pip:nth-child(4) { grid-area: 	e; } .dice-6 .pip:nth-child(5) { grid-area: f; } .dice-6 .pip:nth-child(6) { grid-area: g; }
+	.dice.locked { background: #fff9db; border-color: #fab1a0; transform: scale(0.9) translateY(2px); }
+	.dice.locked::after { content: '📌'; position: absolute; top: -6px; right: -4px; font-size: 11px; }
+	@keyframes rollAnim { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+	.rolling { animation: rollAnim 0.3s ease-out; }t
+
+
+    	</style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="nav-bar">
+        <div class="nav-item active" onclick="showModule('scorer', this)">
+            <div class="nav-icon">📝</div><div class="nav-label">計分器</div>
+        </div>
+        <div class="nav-item" onclick="showModule('timer', this)">
+            <div class="nav-icon">⏳</div><div class="nav-label">計時器</div>
+        </div>
+	<div class="nav-item" onclick="showModule('dice', this)">
+    	<div class="nav-icon">🎲</div><div class="nav-label">骰子</div>
+	</div>
+        <div class="nav-item" onclick="showModule('settings', this)">
+            <div class="nav-icon">⚙️</div><div class="nav-label">設定</div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div id="module-scorer" class="module active">
+            <h2 style="text-align:center;">🎲 KW 計分器</h2>
+            <div id="step1" style="text-align:center;">
+                <p>設定總玩家人數</p>
+                <input type="number" id="input_num" value="5" style="width:80px; margin-bottom:20px;">
+                <br><button id="btn_go2">設定名字</button>
+            </div>
+            <div id="step2" class="hidden">
+                <div id="circle_area" class="circle-container"></div>
+                <div style="text-align:center;"><button id="btn_go3" style="background:var(--success);">開始遊戲</button></div>
+            </div>
+            <div id="step3" class="hidden">
+                <div class="grid">
+                    <div class="panel">
+                        <div id="input_list"></div>
+                        <button id="btn_submit" style="width:100%; margin-top:10px;">結算本局</button>
+                    </div>
+                    <div class="panel">
+                        <div style="display:flex; justify-content:space-between;"><b>排行榜</b><button id="btn_undo" class="hidden" style="background:#888; font-size:10px; padding:4px 8px;">撤銷</button></div>
+                        <table><thead><tr><th>玩家</th><th>上輪</th><th>總分</th><th>結算</th></tr></thead><tbody id="table_body"></tbody></table>
+                    </div>
+                </div>
+                <button onclick="location.reload()" style="background:none; color:#94a3b8; width:100%; margin-top:20px; font-size:12px;">重設全部</button>
+            </div>
+        </div>
+
+        <div id="module-timer" class="module">
+            <h2 style="text-align:center;">⏳ KW 計時器</h2>
+            <div id="t_step1">
+                <div class="setting-row"><label>人數:</label><input type="number" id="t_v_num" value="4"></div>
+                <div class="setting-row"><label>回合 (秒):</label><input type="number" id="t_v_turn" value="30"></div>
+                <div class="setting-row"><label>緩衝 (分):</label><input type="number" id="t_v_bank" value="5" step="any"></div>
+                <button onclick="t_goS2()" style="width:45%; margin-top:20px; display: block; margin-left: auto; margin-right: auto;">設定名單</button>
+            </div>
+            <div id="t_step2" class="hidden">
+                <h3 style="text-align:center; font-size:14px;">點擊輸入框改名</h3>
+                <div class="circle-area" id="t_table_box"></div>
+                <button onclick="t_goS3()" style="width:30%;display: block; margin-left: auto; margin-right: auto; background:var(--success)">設定完成</button>
+            </div>
+            <div id="t_step3" class="hidden">
+                <div class="timer-box" onclick="t_nextP()">
+                    <div id="t_cur_name" style="color:#94a3b8; font-weight:bold;">---</div>
+                    <div class="main-time" id="t_cur_main">00:00</div>
+                    <div id="t_cur_bank" style="color:#64748b">緩衝 00:00</div>
+                </div>
+                <button id="t_btn_pause" onclick="t_toggleT()" style="background:#f59e0b; width:100%;">點此開始倒數</button>
+                <button onclick="location.reload()" style="background:var(--inactive); width:100%; margin-top:15px;">重設所有</button>
+            </div>
+        </div>
+
+	<div id="module-dice" class="module">
+    <h2 style="text-align:center;">🎲 KW 骰子</h2>
+    <div id="d_step1" style="text-align:center; padding-top:20px;">
+        <p>選擇骰子數量</p>
+        <input type="number" id="d_num_input" value="5" min="1" max="15" 
+               style="width:80px; padding:10px; text-align:center; border-radius:10px; border:1px solid #ccc; font-size:20px; margin-bottom:10px;">
+        <button onclick="d_initDice()" style="width:45%; margin-top:20px; display:block; margin-left:auto; margin-right:auto;">開始</button>
+    </div>
+
+    <div id="d_step2" class="hidden">
+        <div id="d_container" class="dice-grid"></div>
+        <button onclick="d_roll()" id="d_roll_btn" style="width:100%;">重擲未鎖定</button>
+        <button onclick="showModule('dice', document.querySelectorAll('.nav-item')[2])" style="background:var(--inactive); font-size:12px; width:45%; margin-top:30px; display:block; margin-left:auto; margin-right:auto;">重新設定</button>
+    </div>
+</div>
+
+
+        <div id="module-settings" class="module">
+            <h2 style="text-align:center;">⚙️ 設定</h2>
+            <div class="panel"><p>版本：KW Toolbox v1.5 Integrated</p><button onclick="location.reload()" style="background:#64748b; width:100%;">重新載入</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 框架邏輯 ---
+    function showModule(name, element) {
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    element.classList.add('active');
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    document.getElementById('module-' + name).classList.add('active');
+    
+    // 新增這段：切換回骰子時回到選擇數量的第一步
+    if(name === 'dice') {
+        document.getElementById('d_step1').classList.remove('hidden');
+        document.getElementById('d_step2').classList.add('hidden');
+    }
+}
+
+    // --- 計分器邏輯 (保持 index v1 原樣) ---
+    var players = [];
+    var historyStack = [];
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('btn_go2').addEventListener('click', function() {
+            var n = parseInt(document.getElementById('input_num').value) || 5;
+            var area = document.getElementById('circle_area'); area.innerHTML = '';
+            for (var i = 0; i < n; i++) {
+                var angle = (i * 2 * Math.PI / n) - (Math.PI / 2);
+                var x = 140 + 110 * Math.cos(angle), y = 140 + 110 * Math.sin(angle);
+                var inp = document.createElement('input'); inp.className = 'p-node name-input'; inp.value = '玩家' + (i + 1);
+                inp.style.left = x + 'px'; inp.style.top = y + 'px'; area.appendChild(inp);
+            }
+            document.getElementById('step1').classList.add('hidden'); document.getElementById('step2').classList.remove('hidden');
+        });
+        document.getElementById('btn_go3').addEventListener('click', function() {
+            var nameInputs = document.querySelectorAll('.name-input');
+            players = [];
+            for (var i = 0; i < nameInputs.length; i++) {
+                players.push({ name: nameInputs[i].value, totalScore: 0, totalNet: 0, lastScore: 0, isOut: false });
+            }
+            renderInputs(); renderTable();
+            document.getElementById('step2').classList.add('hidden'); document.getElementById('step3').classList.remove('hidden');
+        });
+        document.getElementById('btn_submit').addEventListener('click', function() {
+            var roundResults = [], activeIndices = [], roundSum = 0;
+            for (var i = 0; i < players.length; i++) {
+                var val = 0; if (!players[i].isOut) { val = parseInt(document.getElementById('sc-' + i).value) || 0; roundSum += val; activeIndices.push(i); }
+                roundResults.push({ score: val, isOut: players[i].isOut, net: 0 });
+            }
+            if (activeIndices.length > 1) {
+                activeIndices.forEach(idx => {
+                    var n = activeIndices.length;
+                    var roundNet = (roundResults[idx].score * -(n - 1)) + (roundSum - roundResults[idx].score);
+                    players[idx].totalScore += roundResults[idx].score; players[idx].totalNet += roundNet; players[idx].lastScore = roundResults[idx].score; roundResults[idx].net = roundNet;
+                });
+                players.forEach((p, k) => { if(p.isOut) p.lastScore = "-"; document.getElementById('sc-' + k).value = 0; });
+                historyStack.push(roundResults); renderTable();
+            } else alert("請至少讓兩位玩家上場！");
+        });
+        document.getElementById('btn_undo').addEventListener('click', function() {
+            if (historyStack.length === 0) return;
+            var lastRound = historyStack.pop();
+            players.forEach((p, i) => {
+                if (!lastRound[i].isOut) { p.totalScore -= lastRound[i].score; p.totalNet -= lastRound[i].net; }
+                p.lastScore = historyStack.length ? (historyStack[historyStack.length-1][i].isOut ? "-" : historyStack[historyStack.length-1][i].score) : 0;
+            });
+            renderTable();
+        });
+    });
+    function renderInputs() {
+        var list = document.getElementById('input_list'); list.innerHTML = '';
+        players.forEach((p, i) => {
+            var div = document.createElement('div'); div.className = 'row' + (p.isOut ? ' is-out' : '');
+            div.innerHTML = `<b>${p.name}</b><div><input type="number" class="sc-in" id="sc-${i}" value="0" ${p.isOut?'disabled':''} onclick="this.select()"><button class="btn-status ${p.isOut?'':'active'}" onclick="togglePlayer(${i})">${p.isOut?'休息':'上場'}</button></div>`;
+            list.appendChild(div);
+        });
+    }
+    function renderTable() {
+        var body = document.getElementById('table_body');
+        body.innerHTML = players.map(p => `<tr><td><b>${p.name}</b></td><td style="color:#666">${p.lastScore}</td><td>${p.totalScore}</td><td class="${p.totalNet>=0?'pos':'neg'}">${(p.totalNet>0?"+":"")+p.totalNet}</td></tr>`).join('');
+        document.getElementById('btn_undo').classList.toggle('hidden', historyStack.length === 0);
+    }
+    window.togglePlayer = function(idx) { players[idx].isOut = !players[idx].isOut; renderInputs(); };
+
+    // --- 計時器邏輯 (t_ 前綴) ---
+    var t_data = { ps: [], curr: 0, timer: null, paused: true, turnMax: 0 };
+    function t_goS2() {
+        var n = parseInt(document.getElementById('t_v_num').value) || 2;
+        var box = document.getElementById('t_table_box'); box.innerHTML = '';
+        for (var i = 0; i < n; i++) {
+            var a = (i * 2 * Math.PI / n) - (Math.PI / 2);
+            var x = 120 + 90 * Math.cos(a), y = 120 + 90 * Math.sin(a);
+            var inp = document.createElement('input'); inp.className = 'p-input'; inp.value = '玩家' + (i + 1); inp.id = 't-name-' + i;
+            inp.style.left = x + 'px'; inp.style.top = y + 'px'; box.appendChild(inp);
+        }
+        document.getElementById('t_step1').classList.add('hidden'); document.getElementById('t_step2').classList.remove('hidden');
+    }
+    function t_goS3() {
+        var n = parseInt(document.getElementById('t_v_num').value) || 2;
+        t_data.turnMax = parseInt(document.getElementById('t_v_turn').value) || 30;
+        var bSec = Math.round((parseFloat(document.getElementById('t_v_bank').value) || 0) * 60);
+        t_data.ps = [];
+        for(var i=0; i<n; i++) {
+            t_data.ps.push({ name: document.getElementById('t-name-' + i).value, turn: t_data.turnMax, bank: bSec });
+        }
+        document.getElementById('t_step2').classList.add('hidden'); document.getElementById('t_step3').classList.remove('hidden');
+        t_render();
+    }
+    function t_toggleT() {
+        t_data.paused = !t_data.paused;
+        document.getElementById('t_btn_pause').innerText = t_data.paused ? "繼續" : "暫停";
+        if(!t_data.paused) {
+            t_data.timer = setInterval(function() {
+                var p = t_data.ps[t_data.curr];
+                if(p.turn > 0) p.turn--; else if(p.bank > 0) p.bank--;
+                else { clearInterval(t_data.timer); alert(p.name + " 時間到！"); t_data.paused = true; }
+                t_render();
+            }, 1000);
+        } else clearInterval(t_data.timer);
+    }
+    function t_nextP() {
+        if(t_data.paused) return;
+        t_data.ps[t_data.curr].turn = t_data.turnMax;
+        t_data.curr = (t_data.curr + 1) % t_data.ps.length;
+        t_render();
+    }
+    function t_render() {
+        var p = t_data.ps[t_data.curr];
+        document.getElementById('t_cur_name').innerText = p.name;
+        document.getElementById('t_cur_main').innerText = t_fmt(p.turn);
+        document.getElementById('t_cur_bank').innerText = "緩衝 " + t_fmt(p.bank);
+        document.getElementById('t_cur_main').style.color = (p.turn <= 5) ? "#ff4757" : "#ffffff";
+    }
+    function t_fmt(s) { var m = Math.floor(s/60), sec = s % 60; return (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec; }
+
+
+	// --- 骰子邏輯 (d_ 前綴確保不與計分/計時器衝突) ---
+	var d_mgr = { diceList: [] };
+
+	function d_initDice() {
+   		var num = parseInt(document.getElementById('d_num_input').value) || 1;
+    		d_mgr.diceList = [];
+    		for (var i = 0; i < num; i++) d_mgr.diceList.push({ value: 1, isLocked: false });
+    		document.getElementById('d_step1').classList.add('hidden');
+    		document.getElementById('d_step2').classList.remove('hidden');
+    		d_roll(true);
+		}
+
+	function d_roll(isFirst) {
+    		d_mgr.diceList.forEach(function(dice) {
+        	if (!dice.isLocked) dice.value = Math.floor(Math.random() * 6) + 1;
+    		});
+    		d_render(isFirst);
+		}
+
+	function d_toggleLock(idx) {
+    		d_mgr.diceList[idx].isLocked = !d_mgr.diceList[idx].isLocked;
+    		d_render(false);
+		}
+
+	function d_render(anim) {
+    		var container = document.getElementById('d_container');
+    		if(!container) return;
+    		container.innerHTML = '';
+    		d_mgr.diceList.forEach(function(dice, index) {
+        	var div = document.createElement('div');
+        	div.className = 'dice dice-' + dice.value + (dice.isLocked ? ' locked' : '');
+        	if (anim && !dice.isLocked) div.classList.add('rolling');
+        	for (var i = 0; i < dice.value; i++) {
+            	var p = document.createElement('span'); p.className = 'pip';
+            	div.appendChild(p);
+        	}
+        div.onclick = function() { d_toggleLock(index); };
+        container.appendChild(div);
+    });
+    var btn = document.getElementById('d_roll_btn');
+    var all = d_mgr.diceList.every(function(d){ return d.isLocked; });
+    btn.innerText = all ? "已全部保留" : "重擲未鎖定";
+    btn.disabled = all;
+    btn.style.opacity = all ? "0.5" : "1";
+}
+
+</script>
+</body>
+</html>
