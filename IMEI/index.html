@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼系統 - 終極修復版</title>
+    <title>保安條碼系統 - 音效完美版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
@@ -78,14 +78,54 @@
 </div>
 
 <script>
-    // 💡 後台管理密碼
     const ADMIN_PASSWORD = "admin123"; 
 
     let isProcessing = false; 
     let resetTimeout = null;
     let html5Qrcode = null;
+    let audioCtx = null; // 用於生成音效的上下文
 
-    // 網頁載入時自動讀取資料
+    // 初始化音效（瀏覽器規定必須在用戶有點擊互動後才能初始化音頻）
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    // 🔊 播放內建音效函式
+    function playBeep(type) {
+        initAudio();
+        if (!audioCtx) return;
+
+        if (type === 'success') {
+            // 🟢 成功音效：高音清脆嗶一聲 (800Hz, 持續 0.15 秒)
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); // 音量
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        } else if (type === 'fail') {
+            // 🔴 失敗音效：低音連續響兩聲 (300Hz)
+            let playTone = (delay, duration) => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.setValueAtTime(280, audioCtx.currentTime + delay);
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime + delay);
+                osc.start(audioCtx.currentTime + delay);
+                osc.stop(audioCtx.currentTime + delay + duration);
+            };
+            playTone(0, 0.2);       // 第一聲
+            playTone(0.25, 0.3);    // 第二聲長音
+        }
+    }
+
     window.onload = function() {
         try {
             const savedData = localStorage.getItem('my_barcodes');
@@ -96,26 +136,20 @@
             }
             updateBarcodeCount();
         } catch(e) {
-            console.error("讀取本地儲存失敗", e);
+            console.error(e);
         }
-        
-        // 延遲 0.5 秒啟動相機，確保網頁元件都載入完畢
         setTimeout(initScanner, 500);
     };
 
-    // 初始化與啟動相機
     function initScanner() {
-        // 防禦機制：檢查掃描庫有沒有成功載入
         if (typeof Html5Qrcode === 'undefined') {
             document.getElementById('result-screen').className = "red";
-            document.getElementById('result-screen').innerText = "❌ 掃描庫載入失敗，請檢查網絡或更換瀏覽器。";
+            document.getElementById('result-screen').innerText = "❌ 掃描庫載入失敗，請檢查網絡。";
             return;
         }
 
         try {
-            if (!html5Qrcode) {
-                html5Qrcode = new Html5Qrcode("reader");
-            }
+            if (!html5Qrcode) { html5Qrcode = new Html5Qrcode("reader"); }
             
             const config = { 
                 fps: 25, 
@@ -123,18 +157,12 @@
                 experimentalFeatures: { useBarCodeDetectorIfSupported: true }
             };
 
-            html5Qrcode.start(
-                { facingMode: "environment" }, 
-                config, 
-                onScanSuccess
-            )
+            html5Qrcode.start({ facingMode: "environment" }, config, onScanSuccess)
             .then(() => {
                 document.getElementById('result-screen').className = "";
                 document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
             })
             .catch((err) => {
-                console.warn("鏡頭啟動失敗，嘗試極簡相容模式...", err);
-                // 降級相容模式
                 html5Qrcode.start({ facingMode: "environment" }, { fps: 15 }, onScanSuccess)
                 .then(() => {
                     document.getElementById('result-screen').className = "";
@@ -146,11 +174,10 @@
                 });
             });
         } catch (e) {
-            console.error("初始化掃描器時發生崩潰", e);
+            console.error(e);
         }
     }
 
-    // 掃描成功邏輯
     function onScanSuccess(decodedText, decodedResult) {
         if (isProcessing) return; 
         isProcessing = true;
@@ -165,12 +192,16 @@
         if (validList.includes(decodedText)) {
             resultScreen.className = "green";
             resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
+            playBeep('success'); // 🔊 播成功音效
+            
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
             historyList.prepend(li);
         } else {
             resultScreen.className = "red";
             resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
+            playBeep('fail'); // 🔊 播失敗音效
+            
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
             historyList.prepend(li);
@@ -184,8 +215,8 @@
         }, 1500);
     }
 
-    // 🟢 確保按鈕百分之百可以點擊的切換邏輯
     function switchTab(tab) {
+        initAudio(); // 順便解鎖音效權限
         const btnScan = document.querySelectorAll('.tab-btn')[0];
         const btnAdmin = document.querySelectorAll('.tab-btn')[1];
         const pageScan = document.getElementById('page-scan');
@@ -202,14 +233,12 @@
             btnAdmin.classList.add('active');
             pageScan.classList.add('hidden');
             pageAdmin.classList.remove('hidden');
-            // 如果相機開著，關閉它；如果相機沒開或出錯，忽略錯誤，照樣切換到後台
             if(html5Qrcode && html5Qrcode.isScanning) { 
                 html5Qrcode.stop().catch(err => console.log("關閉相機跳過")); 
             }
         }
     }
 
-    // 後台密碼驗證
     function checkPassword() {
         const inputPass = document.getElementById('admin-password').value;
         if (inputPass === ADMIN_PASSWORD) {
@@ -221,7 +250,10 @@
         }
     }
 
-    // 儲存條碼
+    document.getElementById('admin-password')?.addEventListener('keypress', function(e) {
+        if(e.key === 'Enter') checkPassword();
+    });
+
     function saveBarcodes() {
         const textData = document.getElementById('valid-barcodes').value;
         try {
@@ -229,11 +261,10 @@
             updateBarcodeCount();
             alert("💾 條碼清單已成功儲存！");
         } catch(e) {
-            alert("❌ 儲存失敗，請確保使用非無痕模式瀏覽。");
+            alert("❌ 儲存失敗。");
         }
     }
 
-    // 清空條碼
     function clearBarcodes() {
         if(confirm("⚠️ 確定要清空所有條碼嗎？")) {
             document.getElementById('valid-barcodes').value = "";
@@ -242,14 +273,12 @@
         }
     }
 
-    // 更新數量
     function updateBarcodeCount() {
         const list = document.getElementById('valid-barcodes').value
                         .split('\n').map(item => item.trim()).filter(item => item !== "");
         document.getElementById('barcode-count').innerText = list.length;
     }
 
-    // 登出
     function logoutAdmin() {
         document.getElementById('admin-auth').classList.remove('hidden');
         document.getElementById('admin-content').classList.add('hidden');
