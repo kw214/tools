@@ -4,7 +4,81 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>保安條碼自動掃描系統</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script>
+        let isProcessing = false; 
+        let resetTimeout = null;
+
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isProcessing) return; 
+            isProcessing = true;
+
+            const validList = document.getElementById('valid-barcodes').value
+                                .split('\n')
+                                .map(item => item.trim())
+                                .filter(item => item !== "");
+
+            const resultScreen = document.getElementById('result-screen');
+            const historyList = document.getElementById('scan-history');
+            const now = new Date().toLocaleTimeString();
+
+            if (validList.includes(decodedText)) {
+                resultScreen.className = "green";
+                resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
+                
+                let li = document.createElement('li');
+                li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
+                historyList.prepend(li);
+            } else {
+                resultScreen.className = "red";
+                resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
+                
+                let li = document.createElement('li');
+                li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
+                historyList.prepend(li);
+            }
+
+            if (resetTimeout) clearTimeout(resetTimeout);
+            resetTimeout = setTimeout(() => {
+                resultScreen.className = "";
+                resultScreen.innerText = "⏳ 請對準下一個條碼...";
+                isProcessing = false; 
+            }, 1500); // 縮短冷卻時間到 1.5 秒，提速！
+        }
+
+        const html5Qrcode = new Html5Qrcode("reader");
+        
+        // 🚀 核心優化參數：提高影格率、限制解析度以利高速運算
+        const config = { 
+            fps: 30, // 提升到每秒 30 偵，動態捕捉更流暢
+            qrbox: { width: 280, height: 80 }, // 壓扁掃描框！強迫保安員對準條碼中央，大幅減少無用運算
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true // 如果保安手機支援硬體加速（如 Android/Chrome 內建的 Barcode Detector API），直接調用底層硬體解碼！
+            }
+        };
+
+        // 啟動鏡頭：加入相機硬體約束限制 (Constraints)
+        html5Qrcode.start(
+            { 
+                facingMode: "environment",
+                // 強制要求高清解晰度（太低模糊認不出，太高運算會卡，720p - 1080p 是黃金比例）
+                videoConstraints: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    focusMode: "continuous" // 強制開啟連續自動對焦
+                }
+            }, 
+            config, 
+            onScanSuccess
+        )
+        .then(() => {
+            document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
+        })
+        .catch((err) => {
+            document.getElementById('result-screen').className = "red";
+            document.getElementById('result-screen').innerText = "❌ 無法開啟後鏡頭";
+            console.error(err);
+        });
+    </script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f0f2f5; }
         #reader { width: 100%; max-width: 500px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
