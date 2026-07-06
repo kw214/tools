@@ -3,30 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼驗證系統</title>
+    <title>保安條碼自動掃描系統</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f0f2f5; }
         #reader { width: 100%; max-width: 500px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
-        #result-screen { width: 100%; max-width: 500px; height: 150px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; transition: background 0.3s; background: #888; }
+        #result-screen { width: 100%; max-width: 500px; height: 150px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 26px; font-weight: bold; transition: background 0.2s; background: #888; }
         .green { background: #2ecc71 !important; }
         .red { background: #e74c3c !important; }
         #log-list { max-width: 500px; margin: 20px auto; text-align: left; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        ul { padding-left: 20px; }
+        ul { padding-left: 20px; max-height: 200px; overflow-y: auto; }
+        textarea { width: 100%; box-sizing: border-box; padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <h2>📋 保安條碼掃描器</h2>
+    <h2>📋 保安條碼自動掃描器</h2>
     
     <div id="reader"></div>
 
-    <div id="result-screen">等待掃描...</div>
+    <div id="result-screen">⚙️ 正在啟動後置鏡頭...</div>
 
     <div id="log-list">
         <h3>⚙️ 有效條碼管理清單</h3>
         <p>請輸入允許的條碼（每行一個）：</p>
-        <textarea id="valid-barcodes" rows="5" style="width:100%; box-sizing: border-box; padding: 5px;">
+        <textarea id="valid-barcodes" rows="5">
 BARCODE001
 BARCODE002
 12345678
@@ -37,9 +38,15 @@ TEST123</textarea>
     </div>
 
     <script>
-        // 當解碼成功的處理邏輯
+        let isProcessing = false; // 防止重複觸發的鎖
+        let resetTimeout = null;
+
         function onScanSuccess(decodedText, decodedResult) {
-            // 讀取管理清單中的條碼，轉成陣列並去除空白
+            // 如果正在顯示上一次的結果，暫時不處理新的掃描（模仿掃描槍的冷卻時間）
+            if (isProcessing) return; 
+            isProcessing = true;
+
+            // 讀取管理清單
             const validList = document.getElementById('valid-barcodes').value
                                 .split('\n')
                                 .map(item => item.trim())
@@ -49,39 +56,58 @@ TEST123</textarea>
             const historyList = document.getElementById('scan-history');
             const now = new Date().toLocaleTimeString();
 
-            // 檢查條碼是否存在於清單中
+            // 檢查條碼
             if (validList.includes(decodedText)) {
                 // 🟢 有紀錄：出綠燈
                 resultScreen.className = "green";
-                resultScreen.innerText = `🟢 驗證成功: ${decodedText}`;
+                resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
                 
-                // 新增到歷史紀錄
                 let li = document.createElement('li');
-                li.innerHTML = `<span style="color:green;">[成功]</span> ${now} - ${decodedText}`;
+                li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
                 historyList.prepend(li);
             } else {
                 // 🔴 無紀錄：出紅燈
                 resultScreen.className = "red";
-                resultScreen.innerText = `🔴 無此紀錄: ${decodedText}`;
+                resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
                 
-                // 新增到歷史紀錄
                 let li = document.createElement('li');
-                li.innerHTML = `<span style="color:red;">[失敗]</span> ${now} - ${decodedText}`;
+                li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
                 historyList.prepend(li);
             }
+
+            // ⏳ 2 秒後自動重設狀態，像掃描槍一樣準備下一次
+            if (resetTimeout) clearTimeout(resetTimeout);
+            resetTimeout = setTimeout(() => {
+                resultScreen.className = "";
+                resultScreen.innerText = "⏳ 請對準下一個條碼...";
+                isProcessing = false; // 解鎖，允許下一次掃描
+            }, 2000); 
         }
 
-        // 初始化掃描器
-        const html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", 
-            { 
-                fps: 10,       // 每秒偵測次數
-                qrbox: { width: 250, height: 150 }, // 針對一維條碼，調整掃描框為長方形
-                formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.CODE_39 ] // 支援常見的一維條碼格式
-            },
-            /* verbose= */ false
-        );
-        html5QrcodeScanner.render(onScanSuccess);
+        // 🛠️ 改用 Html5Qrcode 核心控制，跳過選擇視窗，直接指派後置鏡頭
+        const html5Qrcode = new Html5Qrcode("reader");
+        
+        const config = { 
+            fps: 15, // 提高偵測頻率，抓取更快
+            qrbox: { width: 280, height: 130 }, // 長方形框，適合一維條碼
+            formatsToSupport: [ 
+                Html5QrcodeSupportedFormats.CODE_128, 
+                Html5QrcodeSupportedFormats.EAN_13, 
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.UPC_A
+            ] 
+        };
+
+        // 啟動鏡頭：facingMode: "environment" 代表後鏡頭
+        html5Qrcode.start({ facingMode: "environment" }, config, onScanSuccess)
+        .then(() => {
+            document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
+        })
+        .catch((err) => {
+            document.getElementById('result-screen').className = "red";
+            document.getElementById('result-screen').innerText = "❌ 無法開啟後鏡頭，請檢查相機權限或使用 HTTPS";
+            console.error(err);
+        });
     </script>
 </body>
 </html>
