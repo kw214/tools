@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保安條碼驗證系統</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f0f2f5; }
+        #reader { width: 100%; max-width: 500px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+        #result-screen { width: 100%; max-width: 500px; height: 150px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; transition: background 0.3s; background: #888; }
+        .green { background: #2ecc71 !important; }
+        .red { background: #e74c3c !important; }
+        #log-list { max-width: 500px; margin: 20px auto; text-align: left; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        ul { padding-left: 20px; }
+    </style>
+</head>
+<body>
+
+    <h2>📋 保安條碼掃描器</h2>
+    
+    <div id="reader"></div>
+
+    <div id="result-screen">等待掃描...</div>
+
+    <div id="log-list">
+        <h3>⚙️ 有效條碼管理清單</h3>
+        <p>請輸入允許的條碼（每行一個）：</p>
+        <textarea id="valid-barcodes" rows="5" style="width:100%; box-sizing: border-box; padding: 5px;">
+BARCODE001
+BARCODE002
+12345678
+TEST123</textarea>
+        
+        <h3>⏱️ 最近掃描紀錄</h3>
+        <ul id="scan-history"></ul>
+    </div>
+
+    <script>
+        // 當解碼成功的處理邏輯
+        function onScanSuccess(decodedText, decodedResult) {
+            // 讀取管理清單中的條碼，轉成陣列並去除空白
+            const validList = document.getElementById('valid-barcodes').value
+                                .split('\n')
+                                .map(item => item.trim())
+                                .filter(item => item !== "");
+
+            const resultScreen = document.getElementById('result-screen');
+            const historyList = document.getElementById('scan-history');
+            const now = new Date().toLocaleTimeString();
+
+            // 檢查條碼是否存在於清單中
+            if (validList.includes(decodedText)) {
+                // 🟢 有紀錄：出綠燈
+                resultScreen.className = "green";
+                resultScreen.innerText = `🟢 驗證成功: ${decodedText}`;
+                
+                // 新增到歷史紀錄
+                let li = document.createElement('li');
+                li.innerHTML = `<span style="color:green;">[成功]</span> ${now} - ${decodedText}`;
+                historyList.prepend(li);
+            } else {
+                // 🔴 無紀錄：出紅燈
+                resultScreen.className = "red";
+                resultScreen.innerText = `🔴 無此紀錄: ${decodedText}`;
+                
+                // 新增到歷史紀錄
+                let li = document.createElement('li');
+                li.innerHTML = `<span style="color:red;">[失敗]</span> ${now} - ${decodedText}`;
+                historyList.prepend(li);
+            }
+        }
+
+        // 初始化掃描器
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 10,       // 每秒偵測次數
+                qrbox: { width: 250, height: 150 }, // 針對一維條碼，調整掃描框為長方形
+                formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.CODE_39 ] // 支援常見的一維條碼格式
+            },
+            /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess);
+    </script>
+</body>
+</html>
