@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼系統 - 終極穩定版</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <title>保安條碼系統 - 終極修復版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
         .container { max-width: 500px; margin: 0 auto; }
@@ -15,7 +15,7 @@
         .tab-btn.active { background: #3498db; color: white; }
 
         /* 掃描介面 */
-        #reader { width: 100%; background: white; border-radius: 8px; overflow: hidden; }
+        #reader { width: 100%; background: white; border-radius: 8px; overflow: hidden; min-height: 200px; }
         #result-screen { width: 100%; height: 120px; margin: 20px 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; transition: background 0.2s; background: #888; white-space: pre-line; }
         .green { background: #2ecc71 !important; }
         .red { background: #e74c3c !important; }
@@ -78,82 +78,83 @@
 </div>
 
 <script>
-    // 💡 你可以把這裡的 "admin123" 改成你想要的後台密碼
+    // 💡 後台管理密碼
     const ADMIN_PASSWORD = "admin123"; 
 
     let isProcessing = false; 
     let resetTimeout = null;
     let html5Qrcode = null;
 
-    // 鏡頭極速版參數設定
-    const config = { 
-        fps: 30, // 提升到每秒 30 偵，動態捕捉更流暢
-        qrbox: { width: 280, height: 80 }, // 壓扁掃描框！專為一維條碼優化
-        experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true // 開啟硬體加速
-        }
-    };
-
-    // 網頁載入時自動讀取之前存好的條碼
+    // 網頁載入時自動讀取資料
     window.onload = function() {
-        const savedData = localStorage.getItem('my_barcodes');
-        if (savedData) {
-            document.getElementById('valid-barcodes').value = savedData;
-        } else {
-            // 如果首次打開完全沒資料，預設放三個測試範例
-            document.getElementById('valid-barcodes').value = "BARCODE001\nBARCODE002\n12345678";
-        }
-        updateBarcodeCount();
-        initScanner();
-    };
-
-    // 初始化與啟動相機（智能相容模式）
-    function initScanner() {
-        if (!html5Qrcode) {
-            html5Qrcode = new Html5Qrcode("reader");
+        try {
+            const savedData = localStorage.getItem('my_barcodes');
+            if (savedData) {
+                document.getElementById('valid-barcodes').value = savedData;
+            } else {
+                document.getElementById('valid-barcodes').value = "BARCODE001\nBARCODE002\n12345678";
+            }
+            updateBarcodeCount();
+        } catch(e) {
+            console.error("讀取本地儲存失敗", e);
         }
         
-        // 嘗試 1：使用高清+自動對焦規格開啟後鏡頭
-        html5Qrcode.start(
-            { 
-                facingMode: "environment",
-                videoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 }, focusMode: "continuous" }
-            }, 
-            config, 
-            onScanSuccess
-        )
-        .then(() => {
-            document.getElementById('result-screen').className = "";
-            document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
-        })
-        .catch((err) => {
-            console.warn("進階鏡頭規格失敗，正在嘗試基本相容模式...", err);
+        // 延遲 0.5 秒啟動相機，確保網頁元件都載入完畢
+        setTimeout(initScanner, 500);
+    };
+
+    // 初始化與啟動相機
+    function initScanner() {
+        // 防禦機制：檢查掃描庫有沒有成功載入
+        if (typeof Html5Qrcode === 'undefined') {
+            document.getElementById('result-screen').className = "red";
+            document.getElementById('result-screen').innerText = "❌ 掃描庫載入失敗，請檢查網絡或更換瀏覽器。";
+            return;
+        }
+
+        try {
+            if (!html5Qrcode) {
+                html5Qrcode = new Html5Qrcode("reader");
+            }
             
-            // 嘗試 2：如果失敗，自動降級用最基本的預設規格開啟後鏡頭
+            const config = { 
+                fps: 25, 
+                qrbox: { width: 280, height: 90 },
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            };
+
             html5Qrcode.start(
                 { facingMode: "environment" }, 
-                { fps: 20, qrbox: { width: 260, height: 100 } }, 
+                config, 
                 onScanSuccess
             )
             .then(() => {
                 document.getElementById('result-screen').className = "";
-                document.getElementById('result-screen').innerText = "⏳ 等待掃描 (相容模式)...";
+                document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
             })
-            .catch((fallbackErr) => {
-                // 嘗試 3：完全無法開啟
-                document.getElementById('result-screen').className = "red";
-                document.getElementById('result-screen').innerText = "❌ 無法開啟鏡頭。\n請確保已允許相機權限，且網址開頭為 HTTPS";
-                console.error(fallbackErr);
+            .catch((err) => {
+                console.warn("鏡頭啟動失敗，嘗試極簡相容模式...", err);
+                // 降級相容模式
+                html5Qrcode.start({ facingMode: "environment" }, { fps: 15 }, onScanSuccess)
+                .then(() => {
+                    document.getElementById('result-screen').className = "";
+                    document.getElementById('result-screen').innerText = "⏳ 等待掃描 (相容模式)...";
+                })
+                .catch((e) => {
+                    document.getElementById('result-screen').className = "red";
+                    document.getElementById('result-screen').innerText = "❌ 無法開啟鏡頭，請手動檢查相機權限。";
+                });
             });
-        });
+        } catch (e) {
+            console.error("初始化掃描器時發生崩潰", e);
+        }
     }
 
-    // 掃描成功、自動連續判定邏輯
+    // 掃描成功邏輯
     function onScanSuccess(decodedText, decodedResult) {
         if (isProcessing) return; 
         isProcessing = true;
 
-        // 獲取目前的有效條碼清單
         const validList = document.getElementById('valid-barcodes').value
                             .split('\n').map(item => item.trim()).filter(item => item !== "");
 
@@ -162,14 +163,12 @@
         const now = new Date().toLocaleTimeString();
 
         if (validList.includes(decodedText)) {
-            // 🟢 有紀錄：出綠燈
             resultScreen.className = "green";
             resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
             historyList.prepend(li);
         } else {
-            // 🔴 無紀錄：出紅燈
             resultScreen.className = "red";
             resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
             let li = document.createElement('li');
@@ -177,7 +176,6 @@
             historyList.prepend(li);
         }
 
-        // ⏳ 1.5 秒後自動重設狀態，像掃描槍一樣準備下一次
         if (resetTimeout) clearTimeout(resetTimeout);
         resetTimeout = setTimeout(() => {
             resultScreen.className = "";
@@ -186,7 +184,7 @@
         }, 1500);
     }
 
-    // 頁籤切換（掃描 / 後台）
+    // 🟢 確保按鈕百分之百可以點擊的切換邏輯
     function switchTab(tab) {
         const btnScan = document.querySelectorAll('.tab-btn')[0];
         const btnAdmin = document.querySelectorAll('.tab-btn')[1];
@@ -198,16 +196,15 @@
             btnAdmin.classList.remove('active');
             pageScan.classList.remove('hidden');
             pageAdmin.classList.add('hidden');
-            // 切回掃描時，如果相機關閉了就重新初始化
             if(html5Qrcode && !html5Qrcode.isScanning) { initScanner(); }
         } else {
             btnScan.classList.remove('active');
             btnAdmin.classList.add('active');
             pageScan.classList.add('hidden');
             pageAdmin.classList.remove('hidden');
-            // 切到後台管理時，自動關閉相機省電與釋放硬體資源
+            // 如果相機開著，關閉它；如果相機沒開或出錯，忽略錯誤，照樣切換到後台
             if(html5Qrcode && html5Qrcode.isScanning) { 
-                html5Qrcode.stop().catch(err => console.log("關閉相機時發生錯誤", err)); 
+                html5Qrcode.stop().catch(err => console.log("關閉相機跳過")); 
             }
         }
     }
@@ -224,25 +221,39 @@
         }
     }
 
-    // 儲存條碼清單到 LocalStorage
+    // 儲存條碼
     function saveBarcodes() {
         const textData = document.getElementById('valid-barcodes').value;
-        localStorage.setItem('my_barcodes', textData);
-        updateBarcodeCount();
-        alert("💾 條碼清單已成功本地儲存！");
+        try {
+            localStorage.setItem('my_barcodes', textData);
+            updateBarcodeCount();
+            alert("💾 條碼清單已成功儲存！");
+        } catch(e) {
+            alert("❌ 儲存失敗，請確保使用非無痕模式瀏覽。");
+        }
     }
 
-    // 清空條碼清單
+    // 清空條碼
     function clearBarcodes() {
         if(confirm("⚠️ 確定要清空所有條碼嗎？")) {
             document.getElementById('valid-barcodes').value = "";
-            localStorage.removeItem('my_barcodes');
+            try { localStorage.removeItem('my_barcodes'); } catch(e){}
             updateBarcodeCount();
         }
     }
 
-    // 更新後台條碼數量統計
+    // 更新數量
     function updateBarcodeCount() {
         const list = document.getElementById('valid-barcodes').value
                         .split('\n').map(item => item.trim()).filter(item => item !== "");
-        document.getElementById('barcode-count').
+        document.getElementById('barcode-count').innerText = list.length;
+    }
+
+    // 登出
+    function logoutAdmin() {
+        document.getElementById('admin-auth').classList.remove('hidden');
+        document.getElementById('admin-content').classList.add('hidden');
+    }
+</script>
+</body>
+</html>
