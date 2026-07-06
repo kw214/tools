@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼系統 - 短音效穩定版</title>
+    <title>保安條碼系統 - 聲音震動雙重版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
@@ -40,7 +40,7 @@
 
 <div class="container">
     <div id="audio-unlock-bar" onclick="unlockAudio()">
-        🔊 點擊此處：啟用超短提示音效
+        🔔 點擊此處：測試並啟用聲音與震動提示
     </div>
 
     <div class="nav-tabs">
@@ -91,68 +91,58 @@
     let isProcessing = false; 
     let resetTimeout = null;
     let html5Qrcode = null;
-    let audioCtx = null;
 
-    // 🔊 用程式生成超短提示音
-    function playBeep(type) {
-        // 如果沒有初始化音頻上下文則跳過
-        if (!audioCtx) return;
-        
-        // 確保音頻上下文處於啟動狀態（解決手機瀏覽器自動掛起問題）
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+    // 🟢 改用外部超短 0.2 秒乾淨 MP3 鈴聲
+    const sndSuccess = new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav"); // 輕脆嗶聲
+    const sndFail = new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-84.wav");       // 警告低音
+    sndSuccess.volume = 0.8;
+    sndFail.volume = 0.8;
 
-        try {
-            if (type === 'success') {
-                // 🟢 成功短音：高音 900Hz，持續 0.1 秒（秒嗶！）
-                let osc = audioCtx.createOscillator();
-                let gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                osc.frequency.setValueAtTime(900, audioCtx.currentTime); 
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime); 
-                
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.1);
-            } else if (type === 'fail') {
-                // 🔴 失敗短音：連續兩聲低沉短音 320Hz
-                let playTone = (delay, duration) => {
-                    let osc = audioCtx.createOscillator();
-                    let gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.frequency.setValueAtTime(320, audioCtx.currentTime + delay);
-                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime + delay);
-                    osc.start(audioCtx.currentTime + delay);
-                    osc.stop(audioCtx.currentTime + delay + duration);
-                };
-                playTone(0, 0.12);    // 第一聲 0.12 秒
-                playTone(0.18, 0.12); // 第二聲 0.12 秒
-            }
-        } catch(e) {
-            console.error("發聲失敗", e);
+    // 🔊 觸發提示（包含震動防禦）
+    function triggerAlert(type) {
+        if (type === 'success') {
+            // 1. 聲音播放
+            try {
+                sndSuccess.currentTime = 0;
+                sndSuccess.play().catch(e => console.log(e));
+            } catch(e){}
+            
+            // 2. 🟢 成功震動：短震動 150 毫秒 (Android 支援)
+            if (navigator.vibrate) navigator.vibrate(150);
+            
+        } else if (type === 'fail') {
+            // 1. 聲音播放
+            try {
+                sndFail.currentTime = 0;
+                sndFail.play().catch(e => console.log(e));
+            } catch(e){}
+            
+            // 2. 🔴 失敗震動：震動 300 毫秒 -> 停 100 毫秒 -> 再震動 300 毫秒
+            if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
         }
     }
 
-    // 點擊解鎖音效
+    // 點擊橘色按鈕解鎖
     function unlockAudio() {
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioCtx.resume().then(() => {
-                // 播放一聲測試
-                playBeep('success');
-                
-                // 修改提示欄
-                const bar = document.getElementById('audio-unlock-bar');
-                bar.style.background = "#2ecc71";
-                bar.innerText = "✅ 短音效已成功啟用！";
-                setTimeout(() => bar.style.display = "none", 2000);
-            });
-        } catch(e) {
-            alert("音效初始化失敗");
-        }
+        // 透過使用者點擊，立刻強行播放並暫停，騙過瀏覽器安全機制
+        sndSuccess.play().then(() => {
+            sndSuccess.currentTime = 0;
+            if (navigator.vibrate) navigator.vibrate(100); // 順便測試震動
+            
+            const bar = document.getElementById('audio-unlock-bar');
+            bar.style.background = "#2ecc71";
+            bar.innerText = "✅ 聲音與震動已就緒！";
+            setTimeout(() => bar.style.display = "none", 2000);
+        }).catch(err => {
+            // 如果還是被封鎖，改用震動替代提示
+            const bar = document.getElementById('audio-unlock-bar');
+            bar.style.background = "#9b59b6";
+            bar.innerText = "📳 聲音遭系統封鎖，已自動改為「純震動」模式";
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            setTimeout(() => bar.style.display = "none", 3000);
+        });
+        
+        sndFail.play().then(() => { sndFail.currentTime = 0; }).catch(()=>{});
     }
 
     window.onload = function() {
@@ -221,7 +211,7 @@
         if (validList.includes(decodedText)) {
             resultScreen.className = "green";
             resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
-            playBeep('success'); // 🔊 播超短成功音效
+            triggerAlert('success'); // 🔊🔥 觸發成功（聲音+震動）
             
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
@@ -229,7 +219,7 @@
         } else {
             resultScreen.className = "red";
             resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
-            playBeep('fail'); // 🔊 播超短失敗音效
+            triggerAlert('fail'); // 🔊🔥 觸發失敗（聲音+震動）
             
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
