@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼系統 - 音效完美版</title>
+    <title>保安條碼系統 - 音效保證版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
@@ -13,6 +13,10 @@
         .nav-tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .tab-btn { flex: 1; padding: 12px; background: #ddd; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
         .tab-btn.active { background: #3498db; color: white; }
+
+        /* 音效解鎖提示按鈕 */
+        #audio-unlock-bar { background: #f39c12; color: white; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; cursor: pointer; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.9; } 50% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0.9; } }
 
         /* 掃描介面 */
         #reader { width: 100%; background: white; border-radius: 8px; overflow: hidden; min-height: 200px; }
@@ -35,6 +39,10 @@
 <body>
 
 <div class="container">
+    <div id="audio-unlock-bar" onclick="unlockAudio()">
+        🔊 點擊此處：開啟/測試掃描音效
+    </div>
+
     <div class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('scan')">📷 保安掃描</button>
         <button class="tab-btn" onclick="switchTab('admin')">⚙️ 後台管理</button>
@@ -83,47 +91,32 @@
     let isProcessing = false; 
     let resetTimeout = null;
     let html5Qrcode = null;
-    let audioCtx = null; // 用於生成音效的上下文
 
-    // 初始化音效（瀏覽器規定必須在用戶有點擊互動後才能初始化音頻）
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    }
+    // 🟢 預先載入真實的 MP3 音檔（使用公開免費音效庫）
+    const soundSuccess = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg"); // 短嗶聲
+    const soundFail = new Audio("https://actions.google.com/sounds/v1/alarms/mechanical_clock_ring_short.ogg");     // 警報聲
+    
+    // 預先降低一點音量避免嚇到人
+    soundSuccess.volume = 0.5;
+    soundFail.volume = 0.5;
 
-    // 🔊 播放內建音效函式
-    function playBeep(type) {
-        initAudio();
-        if (!audioCtx) return;
-
-        if (type === 'success') {
-            // 🟢 成功音效：高音清脆嗶一聲 (800Hz, 持續 0.15 秒)
-            let osc = audioCtx.createOscillator();
-            let gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); // 音量
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
-        } else if (type === 'fail') {
-            // 🔴 失敗音效：低音連續響兩聲 (300Hz)
-            let playTone = (delay, duration) => {
-                let osc = audioCtx.createOscillator();
-                let gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.frequency.setValueAtTime(280, audioCtx.currentTime + delay);
-                gain.gain.setValueAtTime(0.4, audioCtx.currentTime + delay);
-                osc.start(audioCtx.currentTime + delay);
-                osc.stop(audioCtx.currentTime + delay + duration);
-            };
-            playTone(0, 0.2);       // 第一聲
-            playTone(0.25, 0.3);    // 第二聲長音
-        }
+    // 🔊 手動點擊解鎖並測試音效
+    function unlockAudio() {
+        // 播放並立刻暫停，這是解鎖手機瀏覽器音訊的標準做法
+        soundSuccess.play().then(() => {
+            soundSuccess.currentTime = 0;
+            // 測試成功，提示改為綠色
+            const bar = document.getElementById('audio-unlock-bar');
+            bar.style.background = "#2ecc71";
+            bar.innerText = "✅ 音效已成功啟動！";
+            // 3秒後消失
+            setTimeout(() => bar.style.display = "none", 3000);
+        }).catch(err => {
+            alert("音訊解鎖失敗，請確保手機沒有開靜音模式。");
+            console.error(err);
+        });
+        
+        soundFail.play().then(() => { soundFail.currentTime = 0; }).catch(()=>{});
     }
 
     window.onload = function() {
@@ -192,7 +185,10 @@
         if (validList.includes(decodedText)) {
             resultScreen.className = "green";
             resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
-            playBeep('success'); // 🔊 播成功音效
+            
+            // 🔊 播放成功音效
+            soundSuccess.currentTime = 0;
+            soundSuccess.play().catch(e => console.log("音效遭瀏覽器攔截", e));
             
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
@@ -200,7 +196,10 @@
         } else {
             resultScreen.className = "red";
             resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
-            playBeep('fail'); // 🔊 播失敗音效
+            
+            // 🔊 播放失敗音效
+            soundFail.currentTime = 0;
+            soundFail.play().catch(e => console.log("音效遭瀏覽器攔截", e));
             
             let li = document.createElement('li');
             li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
@@ -216,7 +215,6 @@
     }
 
     function switchTab(tab) {
-        initAudio(); // 順便解鎖音效權限
         const btnScan = document.querySelectorAll('.tab-btn')[0];
         const btnAdmin = document.querySelectorAll('.tab-btn')[1];
         const pageScan = document.getElementById('page-scan');
