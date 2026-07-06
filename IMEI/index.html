@@ -3,185 +3,220 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼自動掃描系統</title>
-    <script>
-        let isProcessing = false; 
-        let resetTimeout = null;
-
-        function onScanSuccess(decodedText, decodedResult) {
-            if (isProcessing) return; 
-            isProcessing = true;
-
-            const validList = document.getElementById('valid-barcodes').value
-                                .split('\n')
-                                .map(item => item.trim())
-                                .filter(item => item !== "");
-
-            const resultScreen = document.getElementById('result-screen');
-            const historyList = document.getElementById('scan-history');
-            const now = new Date().toLocaleTimeString();
-
-            if (validList.includes(decodedText)) {
-                resultScreen.className = "green";
-                resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
-                
-                let li = document.createElement('li');
-                li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
-                historyList.prepend(li);
-            } else {
-                resultScreen.className = "red";
-                resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
-                
-                let li = document.createElement('li');
-                li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
-                historyList.prepend(li);
-            }
-
-            if (resetTimeout) clearTimeout(resetTimeout);
-            resetTimeout = setTimeout(() => {
-                resultScreen.className = "";
-                resultScreen.innerText = "⏳ 請對準下一個條碼...";
-                isProcessing = false; 
-            }, 1500); // 縮短冷卻時間到 1.5 秒，提速！
-        }
-
-        const html5Qrcode = new Html5Qrcode("reader");
-        
-        // 🚀 核心優化參數：提高影格率、限制解析度以利高速運算
-        const config = { 
-            fps: 30, // 提升到每秒 30 偵，動態捕捉更流暢
-            qrbox: { width: 280, height: 80 }, // 壓扁掃描框！強迫保安員對準條碼中央，大幅減少無用運算
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true // 如果保安手機支援硬體加速（如 Android/Chrome 內建的 Barcode Detector API），直接調用底層硬體解碼！
-            }
-        };
-
-        // 啟動鏡頭：加入相機硬體約束限制 (Constraints)
-        html5Qrcode.start(
-            { 
-                facingMode: "environment",
-                // 強制要求高清解晰度（太低模糊認不出，太高運算會卡，720p - 1080p 是黃金比例）
-                videoConstraints: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    focusMode: "continuous" // 強制開啟連續自動對焦
-                }
-            }, 
-            config, 
-            onScanSuccess
-        )
-        .then(() => {
-            document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
-        })
-        .catch((err) => {
-            document.getElementById('result-screen').className = "red";
-            document.getElementById('result-screen').innerText = "❌ 無法開啟後鏡頭";
-            console.error(err);
-        });
-    </script>
+    <title>保安條碼系統 - 含管理後台</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background: #f0f2f5; }
-        #reader { width: 100%; max-width: 500px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
-        #result-screen { width: 100%; max-width: 500px; height: 150px; margin: 20px auto; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 26px; font-weight: bold; transition: background 0.2s; background: #888; }
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 500px; margin: 0 auto; }
+        
+        /* 頁籤切換按鈕 */
+        .nav-tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .tab-btn { flex: 1; padding: 12px; background: #ddd; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: #3498db; color: white; }
+
+        /* 掃描介面 */
+        #reader { width: 100%; background: white; border-radius: 8px; overflow: hidden; }
+        #result-screen { width: 100%; height: 120px; margin: 20px 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; transition: background 0.2s; background: #888; }
         .green { background: #2ecc71 !important; }
         .red { background: #e74c3c !important; }
-        #log-list { max-width: 500px; margin: 20px auto; text-align: left; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        ul { padding-left: 20px; max-height: 200px; overflow-y: auto; }
-        textarea { width: 100%; box-sizing: border-box; padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+
+        /* 後台管理介面 */
+        .card { background: white; padding: 20px; border-radius: 8px; text-align: left; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .hidden { display: none !important; }
+        textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }
+        input[type="password"], input[type="text"] { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn { width: 100%; padding: 12px; background: #2ecc71; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-danger { background: #e74c3c; }
+
+        /* 歷史紀錄 */
+        #scan-history { max-height: 150px; overflow-y: auto; padding-left: 20px; }
     </style>
 </head>
 <body>
 
-    <h2>📋 保安條碼自動掃描器</h2>
-    
-    <div id="reader"></div>
-
-    <div id="result-screen">⚙️ 正在啟動後置鏡頭...</div>
-
-    <div id="log-list">
-        <h3>⚙️ 有效條碼管理清單</h3>
-        <p>請輸入允許的條碼（每行一個）：</p>
-        <textarea id="valid-barcodes" rows="5">
-BARCODE001
-BARCODE002
-12345678
-TEST123</textarea>
-        
-        <h3>⏱️ 最近掃描紀錄</h3>
-        <ul id="scan-history"></ul>
+<div class="container">
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('scan')">📷 保安掃描</button>
+        <button class="tab-btn" onclick="switchTab('admin')">⚙️ 後台管理</button>
     </div>
 
-    <script>
-        let isProcessing = false; // 防止重複觸發的鎖
-        let resetTimeout = null;
-
-        function onScanSuccess(decodedText, decodedResult) {
-            // 如果正在顯示上一次的結果，暫時不處理新的掃描（模仿掃描槍的冷卻時間）
-            if (isProcessing) return; 
-            isProcessing = true;
-
-            // 讀取管理清單
-            const validList = document.getElementById('valid-barcodes').value
-                                .split('\n')
-                                .map(item => item.trim())
-                                .filter(item => item !== "");
-
-            const resultScreen = document.getElementById('result-screen');
-            const historyList = document.getElementById('scan-history');
-            const now = new Date().toLocaleTimeString();
-
-            // 檢查條碼
-            if (validList.includes(decodedText)) {
-                // 🟢 有紀錄：出綠燈
-                resultScreen.className = "green";
-                resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
-                
-                let li = document.createElement('li');
-                li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
-                historyList.prepend(li);
-            } else {
-                // 🔴 無紀錄：出紅燈
-                resultScreen.className = "red";
-                resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
-                
-                let li = document.createElement('li');
-                li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
-                historyList.prepend(li);
-            }
-
-            // ⏳ 2 秒後自動重設狀態，像掃描槍一樣準備下一次
-            if (resetTimeout) clearTimeout(resetTimeout);
-            resetTimeout = setTimeout(() => {
-                resultScreen.className = "";
-                resultScreen.innerText = "⏳ 請對準下一個條碼...";
-                isProcessing = false; // 解鎖，允許下一次掃描
-            }, 2000); 
-        }
-
-        // 🛠️ 改用 Html5Qrcode 核心控制，跳過選擇視窗，直接指派後置鏡頭
-        const html5Qrcode = new Html5Qrcode("reader");
+    <div id="page-scan">
+        <div id="reader"></div>
+        <div id="result-screen">⏳ 等待掃描...</div>
         
+        <div class="card">
+            <h3>⏱️ 最近掃描紀錄</h3>
+            <ul id="scan-history"></ul>
+        </div>
+    </div>
+
+    <div id="page-admin" class="hidden">
+        <div id="admin-auth">
+            <div class="card">
+                <h3>🔒 管理員驗證</h3>
+                <input type="password" id="admin-password" placeholder="請輸入後台管理密碼">
+                <button class="btn" onclick="checkPassword()">登入後台</button>
+            </div>
+        </div>
+
+        <div id="admin-content" class="hidden">
+            <div class="card">
+                <h3>📝 批量更新條碼</h3>
+                <p style="color: #666; font-size: 14px;">請直接貼上你的條碼清單（每行一個條碼）：</p>
+                <textarea id="valid-barcodes" rows="8" placeholder="例如：&#10;BARCODE001&#10;BARCODE002"></textarea>
+                <button class="btn" onclick="saveBarcodes()">💾 儲存條碼清單</button>
+                <button class="btn btn-danger" onclick="clearBarcodes()">🗑️ 清空所有條碼</button>
+            </div>
+            
+            <div class="card">
+                <h3>📊 目前系統資訊</h3>
+                <p>總計有效條碼數量：<strong id="barcode-count">0</strong> 個</p>
+                <button class="btn btn-danger" style="background:#f39c12;" onclick="logoutAdmin()">登出後台</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 💡 設定你的後台管理密碼
+    const ADMIN_PASSWORD = "admin123"; 
+
+    let isProcessing = false; 
+    let resetTimeout = null;
+    let html5Qrcode = null;
+
+    // 網頁載入時，自動從瀏覽器記憶體 (LocalStorage) 讀取之前存好的條碼
+    window.onload = function() {
+        const savedData = localStorage.getItem('my_barcodes');
+        if (savedData) {
+            document.getElementById('valid-barcodes').value = savedData;
+        } else {
+            // 如果完全沒資料，預設放幾個測試
+            document.getElementById('valid-barcodes').value = "BARCODE001\nBARCODE002\n12345678";
+        }
+        updateBarcodeCount();
+        initScanner();
+    };
+
+    // 初始化掃描器
+    function initScanner() {
+        html5Qrcode = new Html5Qrcode("reader");
         const config = { 
-            fps: 15, // 提高偵測頻率，抓取更快
-            qrbox: { width: 280, height: 130 }, // 長方形框，適合一維條碼
-            formatsToSupport: [ 
-                Html5QrcodeSupportedFormats.CODE_128, 
-                Html5QrcodeSupportedFormats.EAN_13, 
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.UPC_A
-            ] 
+            fps: 30, 
+            qrbox: { width: 280, height: 80 }, 
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
         };
 
-        // 啟動鏡頭：facingMode: "environment" 代表後鏡頭
-        html5Qrcode.start({ facingMode: "environment" }, config, onScanSuccess)
-        .then(() => {
-            document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
-        })
-        .catch((err) => {
+        html5Qrcode.start(
+            { facingMode: "environment", videoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 }, focusMode: "continuous" } }, 
+            config, 
+            onScanSuccess
+        ).catch(err => {
             document.getElementById('result-screen').className = "red";
-            document.getElementById('result-screen').innerText = "❌ 無法開啟後鏡頭，請檢查相機權限或使用 HTTPS";
-            console.error(err);
+            document.getElementById('result-screen').innerText = "❌ 無法開啟鏡頭";
         });
-    </script>
+    }
+
+    // 掃描成功邏輯
+    function onScanSuccess(decodedText, decodedResult) {
+        if (isProcessing) return; 
+        isProcessing = true;
+
+        // 讀取當前清單
+        const validList = document.getElementById('valid-barcodes').value
+                            .split('\n').map(item => item.trim()).filter(item => item !== "");
+
+        const resultScreen = document.getElementById('result-screen');
+        const historyList = document.getElementById('scan-history');
+        const now = new Date().toLocaleTimeString();
+
+        if (validList.includes(decodedText)) {
+            resultScreen.className = "green";
+            resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
+            let li = document.createElement('li');
+            li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
+            historyList.prepend(li);
+        } else {
+            resultScreen.className = "red";
+            resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
+            let li = document.createElement('li');
+            li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
+            historyList.prepend(li);
+        }
+
+        if (resetTimeout) clearTimeout(resetTimeout);
+        resetTimeout = setTimeout(() => {
+            resultScreen.className = "";
+            resultScreen.innerText = "⏳ 請對準下一個條碼...";
+            isProcessing = false; 
+        }, 1500);
+    }
+
+    // 頁籤切換
+    function switchTab(tab) {
+        const btnScan = document.querySelectorAll('.tab-btn')[0];
+        const btnAdmin = document.querySelectorAll('.tab-btn')[1];
+        const pageScan = document.getElementById('page-scan');
+        const pageAdmin = document.getElementById('page-admin');
+
+        if (tab === 'scan') {
+            btnScan.classList.add('active');
+            btnAdmin.classList.remove('active');
+            pageScan.classList.remove('hidden');
+            pageAdmin.classList.add('hidden');
+            // 切回掃描時，如果相機沒開就重開
+            if(html5Qrcode && !html5Qrcode.isScanning) { initScanner(); }
+        } else {
+            btnScan.classList.remove('active');
+            btnAdmin.classList.add('active');
+            pageScan.classList.add('hidden');
+            pageAdmin.classList.remove('hidden');
+            // 切到後台時，暫時關閉相機省電
+            if(html5Qrcode && html5Qrcode.isScanning) { html5Qrcode.stop(); }
+        }
+    }
+
+    // 檢查後台密碼
+    function checkPassword() {
+        const inputPass = document.getElementById('admin-password').value;
+        if (inputPass === ADMIN_PASSWORD) {
+            document.getElementById('admin-auth').classList.add('hidden');
+            document.getElementById('admin-content').classList.remove('hidden');
+            document.getElementById('admin-password').value = ""; // 清空輸入框
+        } else {
+            alert("❌ 密碼錯誤！");
+        }
+    }
+
+    // 儲存條碼到瀏覽器LocalStorage
+    function saveBarcodes() {
+        const textData = document.getElementById('valid-barcodes').value;
+        localStorage.setItem('my_barcodes', textData);
+        updateBarcodeCount();
+        alert("💾 條碼清單已成功儲存！");
+    }
+
+    // 清空條碼
+    function clearBarcodes() {
+        if(confirm("⚠️ 確定要清空所有條碼嗎？")) {
+            document.getElementById('valid-barcodes').value = "";
+            localStorage.removeItem('my_barcodes');
+            updateBarcodeCount();
+        }
+    }
+
+    // 更新計數
+    function updateBarcodeCount() {
+        const list = document.getElementById('valid-barcodes').value
+                        .split('\n').map(item => item.trim()).filter(item => item !== "");
+        document.getElementById('barcode-count').innerText = list.length;
+    }
+
+    // 登出後台
+    function logoutAdmin() {
+        document.getElementById('admin-auth').classList.remove('hidden');
+        document.getElementById('admin-content').classList.add('hidden');
+    }
+</script>
 </body>
 </html>
