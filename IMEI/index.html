@@ -3,62 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼系統 - iPhone 專用版</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <title>保安條碼系統 - 實體掃描槍專用版</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 20px; background: #f0f2f5; }
-        .container { max-width: 500px; margin: 0 auto; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background: #f4f6f9; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; }
         
-        /* 🔥 專為 iPhone 設計的超大醒目音效啟動鍵 */
-        #audio-unlock-bar { background: #ff9500; color: white; padding: 16px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; cursor: pointer; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        /* 標題與頂部啟用鈕 */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        h1 { margin: 0; font-size: 24px; color: #1a1a1a; }
+        #audio-unlock-bar { background: #ff9500; color: white; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; font-size: 15px; box-shadow: 0 2px 8px rgba(255,149,0,0.3); }
 
-        /* 頁籤切換按鈕 */
-        .nav-tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .tab-btn { flex: 1; padding: 12px; background: #ddd; border: none; font-size: 16px; cursor: pointer; font-weight: bold; }
-        .tab-btn.active { background: #007aff; color: white; } /* 改為 iOS 藍 */
+        /* 頁籤切換 */
+        .nav-tabs { display: flex; margin-bottom: 20px; border-radius: 6px; overflow: hidden; background: #ddd; width: fit-content; }
+        .tab-btn { padding: 10px 24px; background: #e0e0e0; border: none; font-size: 15px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { background: #007aff; color: white; }
 
-        /* 掃描介面 */
-        #reader { width: 100%; background: white; border-radius: 8px; overflow: hidden; min-height: 200px; }
-        #result-screen { width: 100%; height: 400px; margin: 20px 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; transition: background 0.2s; background: #888; white-space: pre-line; }
-        .green { background: #4cd964 !important; } /* iOS 綠 */
-        .red { background: #ff3b30 !important; }   /* iOS 紅 */
+        /* 桌面雙欄佈局（左邊看結果、右邊看紀錄） */
+        .main-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .main-layout { grid-template-columns: 1fr; } }
 
-        /* 後台管理介面 */
-        .card { background: white; padding: 20px; border-radius: 8px; text-align: left; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        /* 通用卡片外觀 */
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eef2f5; margin-bottom: 20px; }
+        .card h3 { margin-top: 0; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #f4f6f9; padding-bottom: 8px; }
+
+        /* 🟢 條碼手動/掃描槍輸入框 */
+        .barcode-input-group { display: flex; gap: 10px; }
+        .manual-input { flex: 1; padding: 15px; font-size: 22px; border: 2px solid #007aff; border-radius: 6px; outline: none; letter-spacing: 1px; text-align: center; font-weight: bold; }
+        .manual-input:focus { box-shadow: 0 0 10px rgba(0,122,255,0.4); background: #fafcff; }
+        .input-btn { padding: 0 25px; background: #007aff; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+
+        /* 驗證結果大格格 */
+        #result-screen { width: 100%; height: 180px; margin-top: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; transition: background 0.2s; background: #666; white-space: pre-line; text-align: center; box-sizing: border-box; padding: 15px; line-height: 1.4; }
+        .green { background: #4cd964 !important; }
+        .red { background: #ff3b30 !important; }
+
+        /* 歷史紀錄與後台 */
+        #scan-history { max-height: 380px; overflow-y: auto; padding-left: 0; list-style: none; margin: 0; }
+        #scan-history li { padding: 12px; border-bottom: 1px solid #f4f6f9; font-size: 15px; display: flex; justify-content: space-between; }
+        #scan-history li:first-child { background: #faffe0; font-weight: bold; }
+        
         .hidden { display: none !important; }
-        textarea { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }
-        input[type="password"] { width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        .btn { width: 100%; padding: 12px; background: #4cd964; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        textarea { width: 100%; box-sizing: border-box; padding: 12px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-family: monospace; }
+        input[type="password"] { width: 100%; box-sizing: border-box; padding: 12px; font-size: 15px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; }
+        .btn { width: 100%; padding: 12px; background: #4cd964; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
         .btn-danger { background: #ff3b30; }
-
-        /* 歷史紀錄 */
-        #scan-history { max-height: 150px; overflow-y: auto; padding-left: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="audio-unlock-bar" onclick="unlockAudio()">
-        🔊 點擊這裡：開啟 iPhone 嗶嗶提示音
-    </div>
+    <header>
+        <h1>🛡️ 保安條碼系統 (掃描槍快捷版)</h1>
+        <button id="audio-unlock-bar" onclick="unlockAudio()">🔊 點此啟用提示音效</button>
+    </header>
 
     <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('scan')">📷 保安掃描</button>
+        <button class="tab-btn active" onclick="switchTab('scan')">⌨️ 條碼查驗</button>
         <button class="tab-btn" onclick="switchTab('admin')">⚙️ 後台管理</button>
     </div>
 
     <div id="page-scan">
-        <div id="reader"></div>
-        <div id="result-screen">⏳ 正在初始化相機...</div>
-        
-        <div class="card">
-            <h3>⏱️ 最近掃描紀錄</h3>
-            <ul id="scan-history"></ul>
+        <div class="main-layout">
+            
+            <div>
+                <div class="card" style="background: #eef7ff; border: 1px solid #bae0ff;">
+                    <h3>⌨️ 掃描槍 / 手動輸入區</h3>
+                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #555;">👉 請將游標點入框內，即可使用實體掃描槍連續掃描。</p>
+                    <div class="barcode-input-group">
+                        <input type="text" id="barcode-input" class="manual-input" placeholder="請在此處掃描或輸入..." autofocus autocomplete="off">
+                        <button class="input-btn" onclick="processManualInput()">驗證</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>📊 當前查驗結果</h3>
+                    <div id="result-screen">⏳ 系統就緒，請刷條碼...</div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="card">
+                    <h3>⏱️ 查驗歷史紀錄 (最新在最上)</h3>
+                    <ul id="scan-history">
+                        <li style="color: #999; justify-content: center;">暫無紀錄</li>
+                    </ul>
+                </div>
+            </div>
+            
         </div>
     </div>
 
     <div id="page-admin" class="hidden">
-        <div id="admin-auth">
+        <div id="admin-auth" style="max-width: 500px; margin: 0 auto;">
             <div class="card">
                 <h3>🔒 管理員驗證</h3>
                 <input type="password" id="admin-password" placeholder="請輸入後台管理密碼">
@@ -70,12 +106,12 @@
             <div class="card">
                 <h3>📝 批量更新條碼</h3>
                 <p style="color: #666; font-size: 14px;">請直接貼上你的條碼清單（每行一個條碼）：</p>
-                <textarea id="valid-barcodes" rows="8" placeholder="例如：&#10;BARCODE001&#10;BARCODE002"></textarea>
+                <textarea id="valid-barcodes" rows="12" placeholder="例如：&#10;BARCODE001&#10;BARCODE002"></textarea>
                 <button class="btn" onclick="saveBarcodes()">💾 儲存條碼清單</button>
                 <button class="btn btn-danger" onclick="clearBarcodes()">🗑️ 清空所有條碼</button>
             </div>
             
-            <div class="card">
+            <div class="card" style="max-width: 500px;">
                 <h3>📊 目前系統資訊</h3>
                 <p>總計有效條碼數量：<strong id="barcode-count">0</strong> 個</p>
                 <button class="btn btn-danger" style="background:#f39c12;" onclick="logoutAdmin()">登出後台</button>
@@ -87,19 +123,10 @@
 <script>
     const ADMIN_PASSWORD = "admin123"; 
 
-    let isProcessing = false; 
     let resetTimeout = null;
-    let html5Qrcode = null;
-
-    // 🟢 iPhone 終極解決方案：將超短的「便利商店嗶聲」直接以 Base64 編碼寫死在網頁裡，100% 繞過加載失敗問題
-    const b64Success = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQgAAAAfAB8AHwAfAAAAAA=="; 
-    const b64Fail = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQgAAAAQABAQABAQAAAAAA==";
-
     let audioCtx = null;
-    let successBuffer = null;
-    let failBuffer = null;
 
-    // 用 Web Audio API 建立基礎音頻緩衝，完美配合 iPhone Safari
+    // 用 Web Audio API 建立基礎音頻（完美支援各平台電腦瀏覽器）
     function setupAudioChannels() {
         if (audioCtx) return;
         try {
@@ -107,14 +134,10 @@
         } catch(e) { console.error(e); }
     }
 
-    // 🔊 iPhone 專用強制發聲函式
-    function playIPhoneBeep(type) {
+    // 🔊 嗶嗶提示音
+    function playBeep(type) {
         if (!audioCtx) return;
-        
-        // 如果 iPhone 系統把音訊掛起了，強制喚醒
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
 
         try {
             let osc = audioCtx.createOscillator();
@@ -123,38 +146,30 @@
             gainNode.connect(audioCtx.destination);
 
             if (type === 'success') {
-                // 🟢 成功音效：0.08秒 超乾淨便利商店嗶聲
-                osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // 高音
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // 🟢 成功高音
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.08);
             } else {
-                // 🔴 失敗音效：低沉的「嗶、嗶」兩聲
-                osc.frequency.setValueAtTime(280, audioCtx.currentTime);  // 低音
-                gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(280, audioCtx.currentTime);  // 🔴 失敗低音
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.2);
             }
-        } catch(e) {
-            console.log("iPhone 音訊播放受阻", e);
-        }
+        } catch(e) { console.log(e); }
     }
 
-    // 🔥 點擊橘色按鈕解鎖（iPhone 使用者必須執行此動作）
+    // 點擊解鎖提示音
     function unlockAudio() {
         setupAudioChannels();
         if (audioCtx) {
             audioCtx.resume().then(() => {
-                // 立刻響一聲給保安確認
-                playIPhoneBeep('success');
-                
-                // 改變頂部狀態欄
+                playBeep('success');
                 const bar = document.getElementById('audio-unlock-bar');
                 bar.style.background = "#4cd964";
-                bar.innerText = "✅ iPhone 聲音已成功啟用！";
+                bar.innerText = "✅ 提示音效已啟用";
                 setTimeout(() => bar.style.display = "none", 1500);
-            }).catch(err => {
-                alert("啟動失敗，請確認手機已關閉側邊靜音開關。");
+                document.getElementById('barcode-input').focus();
             });
         }
     }
@@ -168,50 +183,35 @@
                 document.getElementById('valid-barcodes').value = "BARCODE001\nBARCODE002\n12345678";
             }
             updateBarcodeCount();
-        } catch(e) {
-            console.error(e);
-        }
-        setTimeout(initScanner, 500);
+        } catch(e) { console.error(e); }
+        
+        // 自動將游標點進輸入框，方便一開網頁就直接刷槍
+        document.getElementById('barcode-input').focus();
+
+        // 綁定輸入框 Enter 事件（實體掃描槍刷完會自動發送 Enter）
+        document.getElementById('barcode-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processManualInput();
+            }
+        });
     };
 
-    function initScanner() {
-        if (typeof Html5Qrcode === 'undefined') {
-            document.getElementById('result-screen').className = "red";
-            document.getElementById('result-screen').innerText = "❌ 掃描庫載入失敗。";
-            return;
-        }
-
-        try {
-            if (!html5Qrcode) { html5Qrcode = new Html5Qrcode("reader"); }
-            const config = { 
-                fps: 25, 
-                qrbox: { width: 280, height: 90 },
-                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-            };
-
-            html5Qrcode.start({ facingMode: "environment" }, config, onScanSuccess)
-            .then(() => {
-                document.getElementById('result-screen').className = "";
-                document.getElementById('result-screen').innerText = "⏳ 等待掃描...";
-            })
-            .catch((err) => {
-                html5Qrcode.start({ facingMode: "environment" }, { fps: 15 }, onScanSuccess)
-                .then(() => {
-                    document.getElementById('result-screen').className = "";
-                    document.getElementById('result-screen').innerText = "⏳ 等待掃描 (相容模式)...";
-                })
-                .catch((e) => {
-                    document.getElementById('result-screen').className = "red";
-                    document.getElementById('result-screen').innerText = "❌ 無法開啟鏡頭，請檢查權限。";
-                });
-            });
-        } catch (e) { console.error(e); }
+    // 🟢 處理手動輸入框和掃描槍輸入的數據
+    function processManualInput() {
+        const inputEl = document.getElementById('barcode-input');
+        const code = inputEl.value.trim();
+        
+        if (code === "") return; 
+        
+        verifyBarcode(code);
+        
+        // 清空輸入框，並自動保持聚焦（方便下一次連續極速刷槍）
+        inputEl.value = "";
+        inputEl.focus();
     }
 
-    function onScanSuccess(decodedText, decodedResult) {
-        if (isProcessing) return; 
-        isProcessing = true;
-
+    // 核心比對與歷史紀錄渲染邏輯
+    function verifyBarcode(text) {
         const validList = document.getElementById('valid-barcodes').value
                             .split('\n').map(item => item.trim()).filter(item => item !== "");
 
@@ -219,29 +219,33 @@
         const historyList = document.getElementById('scan-history');
         const now = new Date().toLocaleTimeString();
 
-        if (validList.includes(decodedText)) {
-            resultScreen.className = "green";
-            resultScreen.innerText = `🟢 驗證成功\n${decodedText}`;
-            playIPhoneBeep('success'); // 🔊 執行 iPhone 專用成功短音
-            
-            let li = document.createElement('li');
-            li.innerHTML = `<span style="color:green; font-weight:bold;">[成功]</span> ${now} - ${decodedText}`;
-            historyList.prepend(li);
-        } else {
-            resultScreen.className = "red";
-            resultScreen.innerText = `🔴 無此紀錄\n${decodedText}`;
-            playIPhoneBeep('fail');    // 🔊 執行 iPhone 專用失敗短音
-            
-            let li = document.createElement('li');
-            li.innerHTML = `<span style="color:red; font-weight:bold;">[失敗]</span> ${now} - ${decodedText}`;
-            historyList.prepend(li);
-        }
+        if(historyList.innerText.includes("暫無紀錄")) historyList.innerHTML = "";
 
+        let li = document.createElement('li');
+
+        if (validList.includes(text)) {
+            // 🟢 驗證成功
+            resultScreen.className = "green";
+            resultScreen.innerText = `🟢 驗證成功\n${text}`;
+            playBeep('success');
+            
+            li.innerHTML = `<span style="color:#4cd964; font-weight:bold;">🟢 [成功] ${text}</span> <span style="color:#888;">${now}</span>`;
+        } else {
+            // 🔴 失敗
+            resultScreen.className = "red";
+            resultScreen.innerText = `🔴 無此紀錄\n${text}`;
+            playBeep('fail');
+            
+            li.innerHTML = `<span style="color:#ff3b30; font-weight:bold;">🔴 [無紀錄] ${text}</span> <span style="color:#888;">${now}</span>`;
+        }
+        
+        historyList.prepend(li);
+
+        // 1.5 秒後將大格子恢復等待狀態
         if (resetTimeout) clearTimeout(resetTimeout);
         resetTimeout = setTimeout(() => {
             resultScreen.className = "";
-            resultScreen.innerText = "⏳ 請對準下一個條碼...";
-            isProcessing = false; 
+            resultScreen.innerText = "⏳ 請刷下一組條碼...";
         }, 1500);
     }
 
@@ -256,15 +260,12 @@
             btnAdmin.classList.remove('active');
             pageScan.classList.remove('hidden');
             pageAdmin.classList.add('hidden');
-            if(html5Qrcode && !html5Qrcode.isScanning) { initScanner(); }
+            setTimeout(() => document.getElementById('barcode-input').focus(), 100);
         } else {
             btnScan.classList.remove('active');
             btnAdmin.classList.add('active');
             pageScan.classList.add('hidden');
             pageAdmin.classList.remove('hidden');
-            if(html5Qrcode && html5Qrcode.isScanning) { 
-                html5Qrcode.stop().catch(err => console.log("關閉相機跳過")); 
-            }
         }
     }
 
@@ -274,9 +275,7 @@
             document.getElementById('admin-auth').classList.add('hidden');
             document.getElementById('admin-content').classList.remove('hidden');
             document.getElementById('admin-password').value = ""; 
-        } else {
-            alert("❌ 密碼錯誤！");
-        }
+        } else { alert("❌ 密碼錯誤！"); }
     }
 
     function saveBarcodes() {
