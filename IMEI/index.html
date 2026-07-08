@@ -3,75 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>保安條碼 IMEI 系統</title>
+    <title>保安條碼系統 - 人物綁定追蹤版</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 20px; background: #f4f6f9; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; }
+        .container { max-width: 950px; margin: 0 auto; }
         
-        /* 標題與頂部啟用鈕 */
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         h1 { margin: 0; font-size: 24px; color: #1a1a1a; }
         #audio-unlock-bar { background: #ff9500; color: white; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; font-size: 15px; box-shadow: 0 2px 8px rgba(255,149,0,0.3); }
 
-        /* 頁籤切換 */
         .nav-tabs { display: flex; margin-bottom: 20px; border-radius: 6px; overflow: hidden; background: #ddd; width: fit-content; }
         .tab-btn { padding: 10px 24px; background: #e0e0e0; border: none; font-size: 15px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .tab-btn.active { background: #007aff; color: white; }
 
-        /* 桌面雙欄佈局（左邊看結果、右邊看紀錄） */
         .main-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .main-layout { grid-template-columns: 1fr; } }
 
-        /* 通用卡片外觀 */
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eef2f5; margin-bottom: 20px; }
         .card h3 { margin-top: 0; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #f4f6f9; padding-bottom: 8px; }
 
-        /* 🟢 條碼手動/掃描槍輸入框 */
         .barcode-input-group { display: flex; gap: 10px; }
         .manual-input { flex: 1; padding: 15px; font-size: 22px; border: 2px solid #007aff; border-radius: 6px; outline: none; letter-spacing: 1px; text-align: center; font-weight: bold; }
         .manual-input:focus { box-shadow: 0 0 10px rgba(0,122,255,0.4); background: #fafcff; }
-        .input-btn { padding: 0 25px; background: #007aff; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
-
-        /* 驗證結果大格格 */
-        #result-screen { width: 100%; height: 180px; margin-top: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; transition: background 0.2s; background: #666; white-space: pre-line; text-align: center; box-sizing: border-box; padding: 15px; line-height: 1.4; }
+        
+        #result-screen { width: 100%; height: 180px; margin-top: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; transition: background 0.2s; background: #666; white-space: pre-line; text-align: center; box-sizing: border-box; padding: 15px; line-height: 1.4; }
         .green { background: #4cd964 !important; }
         .red { background: #ff3b30 !important; }
 
-        /* 歷史紀錄與後台 */
         #scan-history { max-height: 380px; overflow-y: auto; padding-left: 0; list-style: none; margin: 0; }
-        #scan-history li { padding: 12px; border-bottom: 1px solid #f4f6f9; font-size: 15px; display: flex; justify-content: space-between; }
-        #scan-history li:first-child { background: #faffe0; font-weight: bold; }
+        #scan-history li { padding: 12px; border-bottom: 1px solid #f4f6f9; font-size: 15px; display: flex; flex-direction: column; gap: 4px; }
+        #scan-history li:first-child { background: #faffe0; }
+        .hist-time { font-size: 12px; color: #888; }
         
         .hidden { display: none !important; }
-        textarea { width: 100%; box-sizing: border-box; padding: 12px; font-size: 15px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-family: monospace; }
+        textarea { width: 100%; box-sizing: border-box; padding: 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-family: monospace; line-height: 1.5; }
         input[type="password"] { width: 100%; box-sizing: border-box; padding: 12px; font-size: 15px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 6px; }
         .btn { width: 100%; padding: 12px; background: #4cd964; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
         .btn-danger { background: #ff3b30; }
+        
+        .helper-text { color: #666; font-size: 14px; margin-bottom: 10px; background: #fffbe6; padding: 10px; border-radius: 4px; border-left: 4px solid #fff566; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <h1>🛡️ 保安條碼系統 </h1>
+        <h1>🛡️ 保安條碼系統 (人物綁定追蹤版)</h1>
         <button id="audio-unlock-bar" onclick="unlockAudio()">🔊 點此啟用提示音效</button>
     </header>
 
     <div class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('scan')">⌨️ 條碼查驗</button>
-        <button class="tab-btn" onclick="switchTab('admin')">⚙️ 後台管理</button>
+        <button class="tab-btn" onclick="switchTab('admin')">⚙️ 名冊與後台</button>
     </div>
 
     <div id="page-scan">
         <div class="main-layout">
-            
             <div>
                 <div class="card" style="background: #eef7ff; border: 1px solid #bae0ff;">
                     <h3>⌨️ 掃描槍 / 手動輸入區</h3>
-                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #555;">👉 請將游標點入框內，即可使用實體掃描槍連續掃描。</p>
                     <div class="barcode-input-group">
                         <input type="text" id="barcode-input" class="manual-input" placeholder="請在此處掃描或輸入..." autofocus autocomplete="off">
-                        <button class="input-btn" onclick="processManualInput()">驗證</button>
                     </div>
                 </div>
 
@@ -83,13 +75,12 @@
             
             <div>
                 <div class="card">
-                    <h3>⏱️ 查驗歷史紀錄 (最新在最上)</h3>
+                    <h3>⏱️ 查驗歷史紀錄 (含人員對照)</h3>
                     <ul id="scan-history">
-                        <li style="color: #999; justify-content: center;">暫無紀錄</li>
+                        <li style="color: #999; text-align: center;">暫無紀錄</li>
                     </ul>
                 </div>
             </div>
-            
         </div>
     </div>
 
@@ -104,16 +95,21 @@
 
         <div id="admin-content" class="hidden">
             <div class="card">
-                <h3>📝 批量更新條碼</h3>
-                <p style="color: #666; font-size: 14px;">請直接貼上你的條碼清單（每行一個條碼）：</p>
-                <textarea id="valid-barcodes" rows="12" placeholder="例如：&#10;BARCODE001&#10;BARCODE002"></textarea>
-                <button class="btn" onclick="saveBarcodes()">💾 儲存條碼清單</button>
-                <button class="btn btn-danger" onclick="clearBarcodes()">🗑️ 清空所有條碼</button>
+                <h3>📝 授權人員名冊與條碼綁定</h3>
+                <div class="helper-text">
+                    <strong>💡 輸入格式規則：</strong><br>
+                    請使用 <code>條碼,名字</code> 的方式輸入，每行一組（注意中間是英文半形逗號）。<br>
+                    例如要綁定剛才的條碼：<br>
+                    <code>S02A01A5,陳大文 (保安部)</code>
+                </div>
+                <textarea id="valid-barcodes" rows="12" placeholder="S02A01A5,陳大文&#10;BARCODE001,李小明&#10;12345678,張三"></textarea>
+                <button class="btn" onclick="saveBarcodes()">💾 儲存綁定名冊</button>
+                <button class="btn btn-danger" onclick="clearBarcodes()">🗑️ 清空所有名冊</button>
             </div>
             
             <div class="card" style="max-width: 500px;">
                 <h3>📊 目前系統資訊</h3>
-                <p>總計有效條碼數量：<strong id="barcode-count">0</strong> 個</p>
+                <p>總計有效授權人數：<strong id="barcode-count">0</strong> 人</p>
                 <button class="btn btn-danger" style="background:#f39c12;" onclick="logoutAdmin()">登出後台</button>
             </div>
         </div>
@@ -122,52 +118,41 @@
 
 <script>
     const ADMIN_PASSWORD = "admin123"; 
-
     let resetTimeout = null;
     let audioCtx = null;
 
-    // 用 Web Audio API 建立基礎音頻（完美支援各平台電腦瀏覽器）
     function setupAudioChannels() {
         if (audioCtx) return;
-        try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch(e) { console.error(e); }
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { console.error(e); }
     }
 
-    // 🔊 嗶嗶提示音
     function playBeep(type) {
         if (!audioCtx) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
-
         try {
             let osc = audioCtx.createOscillator();
             let gainNode = audioCtx.createGain();
             osc.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-
             if (type === 'success') {
-                osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // 🟢 成功高音
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
                 gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.08);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.08);
             } else {
-                osc.frequency.setValueAtTime(280, audioCtx.currentTime);  // 🔴 失敗低音
+                osc.frequency.setValueAtTime(280, audioCtx.currentTime);
                 gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
             }
         } catch(e) { console.log(e); }
     }
 
-    // 點擊解鎖提示音
     function unlockAudio() {
         setupAudioChannels();
         if (audioCtx) {
             audioCtx.resume().then(() => {
                 playBeep('success');
                 const bar = document.getElementById('audio-unlock-bar');
-                bar.style.background = "#4cd964";
-                bar.innerText = "✅ 提示音效已啟用";
+                bar.style.background = "#4cd964"; bar.innerText = "✅ 提示音效已啟用";
                 setTimeout(() => bar.style.display = "none", 1500);
                 document.getElementById('barcode-input').focus();
             });
@@ -176,77 +161,85 @@
 
     window.onload = function() {
         try {
-            const savedData = localStorage.getItem('my_barcodes');
+            const savedData = localStorage.getItem('my_barcodes_v2');
             if (savedData) {
                 document.getElementById('valid-barcodes').value = savedData;
             } else {
-                document.getElementById('valid-barcodes').value = "351222435259929\356394414131471\358166961927404\860646070964126\354941524378921\350522950509363\356298670671080\352838650800326\356694141365122\352001243047398";
+                // 預設範例
+                document.getElementById('valid-barcodes').value = "S02A01A5,陳大文 (保安部)\n12345678,李小明 (技術部)";
             }
             updateBarcodeCount();
         } catch(e) { console.error(e); }
         
-        // 自動將游標點進輸入框，方便一開網頁就直接刷槍
         document.getElementById('barcode-input').focus();
-
-        // 綁定輸入框 Enter 事件（實體掃描槍刷完會自動發送 Enter）
         document.getElementById('barcode-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                processManualInput();
-            }
+            if (e.key === 'Enter') processManualInput();
         });
     };
 
-    // 🟢 處理手動輸入框和掃描槍輸入的數據
     function processManualInput() {
         const inputEl = document.getElementById('barcode-input');
         const code = inputEl.value.trim();
-        
-        if (code === "") return; 
-        
-        verifyBarcode(code);
-        
-        // 清空輸入框，並自動保持聚焦（方便下一次連續極速刷槍）
-        inputEl.value = "";
-        inputEl.focus();
+        if (code !== "") verifyBarcode(code);
+        inputEl.value = ""; inputEl.focus();
     }
 
-    // 核心比對與歷史紀錄渲染邏輯
-    function verifyBarcode(text) {
-        const validList = document.getElementById('valid-barcodes').value
-                            .split('\n').map(item => item.trim()).filter(item => item !== "");
+    // 核心拆解與比對邏輯
+    function verifyBarcode(scannedCode) {
+        // 讀取名冊並解析成字典物件 { "條碼": "名字" }
+        const lines = document.getElementById('valid-barcodes').value.split('\n');
+        const userMap = {};
+        
+        lines.forEach(line => {
+            const parts = line.split(',');
+            if (parts.length >= 2) {
+                const barcode = parts[0].trim();
+                const name = parts.slice(1).join(',').trim(); // 預防名字裡也有逗號
+                if (barcode !== "") {
+                    userMap[barcode] = name;
+                }
+            }
+        });
 
         const resultScreen = document.getElementById('result-screen');
         const historyList = document.getElementById('scan-history');
         const now = new Date().toLocaleTimeString();
 
         if(historyList.innerText.includes("暫無紀錄")) historyList.innerHTML = "";
-
         let li = document.createElement('li');
 
-        if (validList.includes(text)) {
-            // 🟢 驗證成功
+        // 比對條碼是否存在於字典中
+        if (scannedCode in userMap) {
+            const personName = userMap[scannedCode];
+            
+            // 🟢 驗證成功：大螢幕顯示名字與條碼
             resultScreen.className = "green";
-            resultScreen.innerText = `🟢 驗證成功\n${text}`;
+            resultScreen.innerText = `🟢 驗證成功\n人員：${personName}\n[${scannedCode}]`;
             playBeep('success');
             
-            li.innerHTML = `<span style="color:#4cd964; font-weight:bold;">🟢 [成功] ${text}</span> <span style="color:#888;">${now}</span>`;
+            li.innerHTML = `
+                <span style="color:#4cd964; font-weight:bold;">🟢 [成功] ${personName}</span>
+                <span class="hist-time">條碼: ${scannedCode} | 時間: ${now}</span>
+            `;
         } else {
             // 🔴 失敗
             resultScreen.className = "red";
-            resultScreen.innerText = `🔴 無此紀錄\n${text}`;
+            resultScreen.innerText = `🔴 無此紀錄\n[${scannedCode}]`;
             playBeep('fail');
             
-            li.innerHTML = `<span style="color:#ff3b30; font-weight:bold;">🔴 [無紀錄] ${text}</span> <span style="color:#888;">${now}</span>`;
+            li.innerHTML = `
+                <span style="color:#ff3b30; font-weight:bold;">🔴 [未知條碼] 無匹配人員</span>
+                <span class="hist-time">條碼: ${scannedCode} | 時間: ${now}</span>
+            `;
         }
         
         historyList.prepend(li);
 
-        // 1.5 秒後將大格子恢復等待狀態
         if (resetTimeout) clearTimeout(resetTimeout);
         resetTimeout = setTimeout(() => {
             resultScreen.className = "";
             resultScreen.innerText = "⏳ 請刷下一組條碼...";
-        }, 1500);
+        }, 3000); // 延長到3秒，讓保安看清名字
     }
 
     function switchTab(tab) {
@@ -256,16 +249,12 @@
         const pageAdmin = document.getElementById('page-admin');
 
         if (tab === 'scan') {
-            btnScan.classList.add('active');
-            btnAdmin.classList.remove('active');
-            pageScan.classList.remove('hidden');
-            pageAdmin.classList.add('hidden');
+            btnScan.classList.add('active'); btnAdmin.classList.remove('active');
+            pageScan.classList.remove('hidden'); pageAdmin.classList.add('hidden');
             setTimeout(() => document.getElementById('barcode-input').focus(), 100);
         } else {
-            btnScan.classList.remove('active');
-            btnAdmin.classList.add('active');
-            pageScan.classList.add('hidden');
-            pageAdmin.classList.remove('hidden');
+            btnScan.classList.remove('active'); btnAdmin.classList.add('active');
+            pageScan.classList.add('hidden'); pageAdmin.classList.remove('hidden');
         }
     }
 
@@ -281,24 +270,27 @@
     function saveBarcodes() {
         const textData = document.getElementById('valid-barcodes').value;
         try {
-            localStorage.setItem('my_barcodes', textData);
+            localStorage.setItem('my_barcodes_v2', textData);
             updateBarcodeCount();
-            alert("💾 條碼清單已成功儲存！");
+            alert("💾 名冊已成功儲存！");
         } catch(e) { alert("❌ 儲存失敗。"); }
     }
 
     function clearBarcodes() {
-        if(confirm("⚠️ 確定要清空所有條碼嗎？")) {
+        if(confirm("⚠️ 確定要清空所有人員資料嗎？")) {
             document.getElementById('valid-barcodes').value = "";
-            try { localStorage.removeItem('my_barcodes'); } catch(e){}
+            try { localStorage.removeItem('my_barcodes_v2'); } catch(e){}
             updateBarcodeCount();
         }
     }
 
     function updateBarcodeCount() {
-        const list = document.getElementById('valid-barcodes').value
-                        .split('\n').map(item => item.trim()).filter(item => item !== "");
-        document.getElementById('barcode-count').innerText = list.length;
+        const lines = document.getElementById('valid-barcodes').value.split('\n');
+        let count = 0;
+        lines.forEach(line => {
+            if(line.split(',')[0].trim() !== "") count++;
+        });
+        document.getElementById('barcode-count').innerText = count;
     }
 
     function logoutAdmin() {
